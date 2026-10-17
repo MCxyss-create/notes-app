@@ -1,0 +1,13 @@
+# Генерируется XcodeGen в GitHub Actions
+*.xcodeproj/
+*.xcworkspace/
+
+# Результаты сборки
+build/
+out/
+DerivedData/
+*.ipa
+
+# Системный мусор
+.DS_Store
+Thumbs.db

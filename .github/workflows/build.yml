@@ -1,0 +1,77 @@
+# Сборка неподписанного NotesApp.ipa на облачном Mac GitHub.
+# Готовый файл лежит во вкладке Actions → нужный запуск → Artifacts.
+# Подпись и установка на iPhone — через Sideloadly на Windows.
+
+name: Build IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+
+      - name: Версии macOS и Xcode
+        run: |
+          sw_vers
+          xcodebuild -version
+
+      - name: Установить XcodeGen
+        run: brew install xcodegen
+
+      - name: Сгенерировать проект Xcode
+        run: xcodegen generate
+
+      - name: Собрать без подписи
+        run: |
+          xcodebuild \
+            -project NotesApp.xcodeproj \
+            -scheme NotesApp \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            -quiet \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            build
+
+      - name: Упаковать в .ipa
+        run: |
+          APP="build/Build/Products/Release-iphoneos/NotesApp.app"
+          if [ ! -d "$APP" ]; then
+            echo "Не найдено приложение по пути $APP"
+            echo "Что есть в папке сборки:"
+            ls -la build/Build/Products/ || true
+            exit 1
+          fi
+          mkdir -p out/Payload
+          cp -R "$APP" out/Payload/
+          (cd out && zip -qry NotesApp.ipa Payload)
+          SIZE=$(du -h out/NotesApp.ipa | cut -f1)
+          echo "Готово: out/NotesApp.ipa, размер $SIZE, сборка ${{ github.run_number }}"
+          {
+            echo "## NotesApp.ipa готов"
+            echo ""
+            echo "- Сборка: **${{ github.run_number }}**"
+            echo "- Размер: **$SIZE**"
+            echo "- Скачать: блок **Artifacts** ниже на этой странице"
+            echo "- Установить: распаковать zip → перетащить NotesApp.ipa в Sideloadly → Start"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Выложить .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: NotesApp-build-${{ github.run_number }}
+          path: out/NotesApp.ipa
+          if-no-files-found: error
+          retention-days: 30
