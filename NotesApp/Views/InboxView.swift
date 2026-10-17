@@ -9,7 +9,7 @@ struct InboxView: View {
     @State private var review: AIReview?
     @State private var reviewEntry: UUID?
     @State private var working = false
-    @State private var hasKey = true
+    @State private var hasKey = AISettings.hasKey
     @State private var message: String?
 
     private var waitingCount: Int {
@@ -58,9 +58,6 @@ struct InboxView: View {
                         try? context.save()
                     }
                 }
-            }
-            .task {
-                hasKey = AISettings.hasKey
             }
         }
     }
