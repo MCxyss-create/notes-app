@@ -14,6 +14,7 @@ struct DemoConfig: Equatable {
         case empty
         case review
         case inbox
+        case search
     }
 
     let screen: Screen

@@ -23,6 +23,8 @@ struct ComposerBar: View {
     @State private var review: AIReview?
     @State private var reviewPhrase: String?
     @State private var reviewSaved = false
+    @State private var textBeforeDictation = ""
+    @StateObject private var dictation = Dictation()
     @FocusState private var focused: Bool
 
     private var trimmed: String {
@@ -52,6 +54,13 @@ struct ComposerBar: View {
                         dueChip
                     }
                 }
+                if let notice {
+                    Text(notice)
+                        .font(.footnote)
+                        .foregroundStyle(Color.orange)
+                        .lineLimit(2)
+                        .padding(.horizontal, 4)
+                }
             }
 
             HStack(alignment: .bottom, spacing: 8) {
@@ -65,9 +74,25 @@ struct ComposerBar: View {
                     .background(Color(.secondarySystemBackground),
                                 in: RoundedRectangle(cornerRadius: 20, style: .continuous))
 
-                if working {
+                if dictation.isRecording {
+                    Button {
+                        dictation.stop()
+                    } label: {
+                        Image(systemName: "stop.circle.fill")
+                            .font(.system(size: 34))
+                            .foregroundStyle(Color.red)
+                    }
+                    .accessibilityLabel("Остановить запись")
+                } else if working {
                     ProgressView()
                         .frame(width: 34, height: 40)
+                } else if trimmed.isEmpty {
+                    Button(action: startDictation) {
+                        Image(systemName: "mic.circle.fill")
+                            .font(.system(size: 34))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    .accessibilityLabel("Надиктовать")
                 } else {
                     Button(action: send) {
                         Image(systemName: "arrow.up.circle.fill")
@@ -96,6 +121,17 @@ struct ComposerBar: View {
         }
         .onChange(of: defaultKind) { _, newKind in
             kind = newKind
+        }
+        .onChange(of: dictation.transcript) { _, spoken in
+            guard !spoken.isEmpty else { return }
+            text = textBeforeDictation.isEmpty ? spoken : "\(textBeforeDictation) \(spoken)"
+        }
+        .onChange(of: dictation.error) { _, problem in
+            guard let problem else { return }
+            notice = problem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                if notice == problem { notice = nil }
+            }
         }
         .sheet(isPresented: $showDue) {
             DueDateSheet(selection: $due, timeGiven: $timeGiven)
@@ -184,7 +220,18 @@ struct ComposerBar: View {
         .accessibilityLabel("Когда напомнить")
     }
 
+    /// Микрофон: пока говоришь, текст появляется в поле; потом можно поправить и отправить.
+    private func startDictation() {
+        textBeforeDictation = trimmed
+        notice = nil
+        focused = false
+        Task { await dictation.start() }
+    }
+
     private func send() {
+        if dictation.isRecording {
+            dictation.stop()
+        }
         if aiOn {
             askAI()
         } else {

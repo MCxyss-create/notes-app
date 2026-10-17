@@ -160,6 +160,7 @@ jobs:
           shot empty 7-pusto
           shot review 9-ii-kartochki
           shot inbox 9-vhodyaschie
+          shot search 10-poisk
           xcrun simctl ui "$SIM" appearance dark || true
           shot feed 8-lenta-temnaya
 

@@ -18,6 +18,9 @@ enum NotificationScheduler {
             .map { ReminderInput(item: $0) }
         var plan = NotificationPlanner.plan(reminders, now: now)
         plan += SummaryPlanner.plan(reminders, now: now, settings: SummarySettings.current)
+        if let resign = ResignPlanner.plan(expiration: ProvisionInfo.expirationDate, now: now) {
+            plan.append(resign)
+        }
         return NotificationService.shared.reschedule(plan)
     }
 }

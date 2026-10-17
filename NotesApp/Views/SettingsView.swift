@@ -1,10 +1,17 @@
 import SwiftUI
+import SwiftData
 import UIKit
+import UniformTypeIdentifiers
 import UserNotifications
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.modelContext) private var context
+    @State private var exportDocument: BackupDocument?
+    @State private var showExporter = false
+    @State private var showImporter = false
+    @State private var backupMessage: String?
     @AppStorage(SettingsKeys.defaultHour) private var defaultHour = 9
     @AppStorage(SettingsKeys.defaultMinute) private var defaultMinute = 0
     @AppStorage(SettingsKeys.defaultBeforeMin) private var defaultBefore = 15
@@ -43,8 +50,16 @@ struct SettingsView: View {
                     Text("Если указан только день, напоминание сработает в это время.")
                 }
 
-                Section("О приложении") {
+                backupSection
+
+                Section {
                     LabeledContent("Версия", value: AppInfo.versionText)
+                    LabeledContent("Подпись действует до",
+                                   value: ProvisionInfo.expirationDate.map { DateText.short($0) } ?? "нет данных")
+                } header: {
+                    Text("О приложении")
+                } footer: {
+                    Text("Бесплатная подпись живёт 7 дней. За сутки до конца придёт напоминание переустановить приложение через Sideloadly — записи сохранятся.")
                 }
             }
             .navigationTitle("Настройки")
@@ -162,6 +177,75 @@ struct SettingsView: View {
             }
         } header: {
             Text("Уведомления")
+        }
+    }
+
+    private var backupSection: some View {
+        Section {
+            Button("Сохранить копию в «Файлы»") {
+                prepareExport()
+            }
+            .fileExporter(isPresented: $showExporter, document: exportDocument, contentType: .json,
+                          defaultFilename: Backup.fileName()) { result in
+                switch result {
+                case .success:
+                    backupMessage = "Копия сохранена."
+                case .failure(let error):
+                    backupMessage = "Не сохранилось: \(error.localizedDescription)"
+                }
+            }
+
+            Button("Восстановить из копии") {
+                showImporter = true
+            }
+            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json]) { result in
+                importBackup(result)
+            }
+
+            if let backupMessage {
+                Text(backupMessage)
+                    .font(.footnote)
+                    .foregroundStyle(Color.secondary)
+            }
+        } header: {
+            Text("Резервная копия")
+        } footer: {
+            Text("Все записи одним файлом JSON. Восстановление добавляет только те записи, которых ещё нет.")
+        }
+    }
+
+    private func prepareExport() {
+        let items = (try? context.fetch(FetchDescriptor<Item>(sortBy: [SortDescriptor(\Item.createdAt)]))) ?? []
+        do {
+            exportDocument = BackupDocument(data: try Backup.encode(items.map { BackupItem(item: $0) }))
+            backupMessage = nil
+            showExporter = true
+        } catch {
+            backupMessage = "Не получилось собрать копию: \(error.localizedDescription)"
+        }
+    }
+
+    private func importBackup(_ result: Result<URL, Error>) {
+        switch result {
+        case .failure(let error):
+            backupMessage = "Не открылось: \(error.localizedDescription)"
+        case .success(let url):
+            let access = url.startAccessingSecurityScopedResource()
+            defer {
+                if access { url.stopAccessingSecurityScopedResource() }
+            }
+            do {
+                let file = try Backup.decode(try Data(contentsOf: url))
+                let existing = Set(((try? context.fetch(FetchDescriptor<Item>())) ?? []).map(\.uid))
+                let fresh = Backup.newItems(in: file, existing: existing)
+                for backup in fresh {
+                    context.insert(backup.makeItem())
+                }
+                try? context.save()
+                backupMessage = "Добавлено: \(fresh.count). Уже были: \(file.items.count - fresh.count)."
+            } catch {
+                backupMessage = "Это не копия «Мыслей» или файл повреждён."
+            }
         }
     }
 

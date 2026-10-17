@@ -37,6 +37,8 @@ struct RootView: View {
     @State private var page: MainPage = .feed
     @State private var showSettings = false
     @State private var showInbox = false
+    @State private var showSearch = false
+    @State private var searchQuery = ""
     @State private var editing: Item?
 
     var body: some View {
@@ -55,6 +57,11 @@ struct RootView: View {
                     inboxBanner
                 }
 
+                if let expiry = ProvisionInfo.expirationDate,
+                   ResignPlanner.needsBanner(expiration: expiry, now: Date()) {
+                    resignBanner(expiry)
+                }
+
                 content
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -69,6 +76,14 @@ struct RootView: View {
             .navigationTitle("Мысли")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showSearch = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                    .accessibilityLabel("Поиск")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showSettings = true
@@ -86,6 +101,9 @@ struct RootView: View {
             }
             .sheet(isPresented: $showInbox) {
                 InboxView()
+            }
+            .sheet(isPresented: $showSearch) {
+                SearchView(initialQuery: searchQuery)
             }
         }
         .onChange(of: signature) {
@@ -142,6 +160,23 @@ struct RootView: View {
         .padding(.bottom, 8)
     }
 
+    /// Подпись Sideloadly скоро кончится — после этого приложение не откроется до переустановки.
+    private func resignBanner(_ expiry: Date) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text("Подпись кончится \(DateText.short(expiry).lowercasedFirst). Переустанови через Sideloadly — записи сохранятся.")
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .font(.subheadline)
+        .foregroundStyle(Color.primary)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color.red.opacity(0.15), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+    }
+
     /// Меняется при любой правке записей → уведомления пересчитываются сами.
     private var signature: Int {
         var hasher = Hasher()
@@ -181,6 +216,9 @@ struct RootView: View {
             break
         case .inbox:
             showInbox = true
+        case .search:
+            searchQuery = "#школа"
+            showSearch = true
         case .ideas:
             page = .ideas
         case .notes:
