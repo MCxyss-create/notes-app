@@ -95,8 +95,10 @@ https://claude.ai/code/artifact/42ecb5d0-3680-4a14-96ec-ebeb89d9fcc7
 8 контрольных фраз — `Logic/AIControlCheck.swift`, запрос — `Services/DeepSeekClient.swift`,
 «Входящие» (фраза не разобралась: нет сети, ключа, ошибка) — `InboxEntry` + `InboxProcessor`.
 Фраза из «Входящих» разбирается от момента, когда сказана (`createdAt`), а не от «сейчас».
-Имя модели: `deepseek-flash` — V4.1 Flash с 10.09.2026; если DeepSeek ответит «Model Not Exist»,
-поменять модель в настройках приложения (например, `deepseek-v4-flash`), пересборка не нужна.
+Имя модели: `deepseek-flash` — подтверждено официальной страницей цен DeepSeek
+(api-docs.deepseek.com/quick_start/pricing, проверено 16.10.2026): «Use `deepseek-flash` as the model
+name»; старое `deepseek-v4-flash` тоже принимается и уходит на ту же V4.1 Flash. Модель меняется
+в настройках приложения, пересборка не нужна.
 
 ## Этапы
 
