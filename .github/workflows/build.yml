@@ -68,6 +68,12 @@ jobs:
           mkdir -p out/Payload
           cp -R "$APP" out/Payload/
           (cd out && zip -qry NotesApp.ipa Payload)
+          # Команды для Siri и Кнопки действия: без этой папки iOS их не увидит.
+          if [ -d "$APP/Metadata.appintents" ]; then
+            { echo "Metadata.appintents есть:"; ls -la "$APP/Metadata.appintents"; } | tee ci/appintents.txt
+          else
+            echo "::warning::В приложении нет Metadata.appintents — команды Siri не появятся" | tee ci/appintents.txt
+          fi
           SIZE=$(du -h out/NotesApp.ipa | awk '{print $1}')
           echo "Готово: out/NotesApp.ipa, размер $SIZE, сборка ${{ github.run_number }}"
           {

@@ -25,6 +25,7 @@ struct ComposerBar: View {
     @State private var reviewSaved = false
     @State private var textBeforeDictation = ""
     @StateObject private var dictation = Dictation()
+    @ObservedObject private var launch = QuickLaunch.shared
     @FocusState private var focused: Bool
 
     private var trimmed: String {
@@ -118,6 +119,10 @@ struct ComposerBar: View {
             } else if autoFocus {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { focused = true }
             }
+            handleLaunch()
+        }
+        .onChange(of: launch.pending) {
+            handleLaunch()
         }
         .onChange(of: defaultKind) { _, newKind in
             kind = newKind
@@ -218,6 +223,17 @@ struct ComposerBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Когда напомнить")
+    }
+
+    /// Приложение открыла команда: «Надиктовать» — сразу микрофон, иначе — клавиатура.
+    private func handleLaunch() {
+        guard let action = launch.take() else { return }
+        switch action {
+        case .dictate:
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { startDictation() }
+        case .type:
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { focused = true }
+        }
     }
 
     /// Микрофон: пока говоришь, текст появляется в поле; потом можно поправить и отправить.

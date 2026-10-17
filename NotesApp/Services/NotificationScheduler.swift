@@ -6,6 +6,19 @@ import UserNotifications
 @MainActor
 enum AppModel {
     static var container: ModelContainer?
+
+    /// База для команд Siri и Кнопки действия: iOS может запустить приложение ради них без окна.
+    static func sharedContainer() -> ModelContainer {
+        if let container { return container }
+        do {
+            let made = try ModelContainer(for: Item.self, InboxEntry.self,
+                                          configurations: ModelConfiguration(isStoredInMemoryOnly: false))
+            container = made
+            return made
+        } catch {
+            fatalError("Не удалось открыть базу записей: \(error)")
+        }
+    }
 }
 
 /// Пересчитывает все уведомления: дела, сводки, напоминание о переподписи.
