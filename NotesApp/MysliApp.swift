@@ -6,6 +6,14 @@ struct MysliApp: App {
     private let container: ModelContainer
     private let demo: DemoConfig?
 
+    /// Календарь для выбора даты: русский, неделя с понедельника.
+    private static let russianCalendar: Calendar = {
+        var calendar = Calendar.current
+        calendar.locale = Locale(identifier: "ru_RU")
+        calendar.firstWeekday = 2
+        return calendar
+    }()
+
     init() {
         let demo = DemoConfig.fromLaunchArguments()
         self.demo = demo
@@ -29,6 +37,7 @@ struct MysliApp: App {
         WindowGroup {
             RootView(demo: demo)
                 .environment(\.locale, Locale(identifier: "ru_RU"))
+                .environment(\.calendar, Self.russianCalendar)
         }
         .modelContainer(container)
     }
