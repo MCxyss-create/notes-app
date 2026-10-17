@@ -30,6 +30,7 @@ struct MysliApp: App {
         if let demo {
             DemoData.seed(into: container.mainContext, screen: demo.screen)
         }
+        AppModel.container = container
         NotificationService.shared.configure()
     }
 

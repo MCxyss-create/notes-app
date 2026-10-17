@@ -9,6 +9,24 @@ enum SettingsKeys {
     static let aiEnabled = "aiEnabled"
     static let aiEndpoint = "aiEndpoint"
     static let aiModel = "aiModel"
+    /// Сводки: утром — что сегодня, вечером — что завтра. Время — минуты от полуночи.
+    static let morningSummaryOn = "morningSummaryOn"
+    static let morningSummaryMinutes = "morningSummaryMinutes"
+    static let eveningSummaryOn = "eveningSummaryOn"
+    static let eveningSummaryMinutes = "eveningSummaryMinutes"
+}
+
+extension SummarySettings {
+    static var current: SummarySettings {
+        let defaults = UserDefaults.standard
+        let standard = SummarySettings.standard
+        return SummarySettings(
+            morningOn: defaults.object(forKey: SettingsKeys.morningSummaryOn) as? Bool ?? standard.morningOn,
+            morningMinutes: defaults.object(forKey: SettingsKeys.morningSummaryMinutes) as? Int ?? standard.morningMinutes,
+            eveningOn: defaults.object(forKey: SettingsKeys.eveningSummaryOn) as? Bool ?? standard.eveningOn,
+            eveningMinutes: defaults.object(forKey: SettingsKeys.eveningSummaryMinutes) as? Int ?? standard.eveningMinutes
+        )
+    }
 }
 
 /// Значения настроек для кода вне экранов.

@@ -79,7 +79,8 @@ extension ReminderInput {
             details: item.body,
             dueAt: item.dueAt,
             remindBeforeMin: item.remindBeforeMin,
-            isDone: item.isDone
+            isDone: item.isDone,
+            repeatRule: item.repeatRule
         )
     }
 }

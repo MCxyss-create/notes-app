@@ -11,6 +11,13 @@ struct ItemRow: View {
         return due < now
     }
 
+    /// «Завтра, 09:00» или «Завтра, 09:00 · каждый день».
+    private func dueText(_ due: Date) -> String {
+        let text = DateText.short(due, now: now)
+        guard let rule = item.repeatRule else { return text }
+        return "\(text) · \(rule.title.lowercasedFirst)"
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             leadingIcon
@@ -36,13 +43,20 @@ struct ItemRow: View {
                 }
 
                 if item.kind == .reminder, let due = item.dueAt {
-                    Label(DateText.short(due, now: now), systemImage: "clock")
+                    Label(dueText(due), systemImage: item.repeatRule == nil ? "clock" : "repeat")
                         .font(.caption)
                         .foregroundStyle(isOverdue ? Color.red : Color.secondary)
                 } else if item.kind != .reminder {
                     Text(DateText.short(item.createdAt, now: now))
                         .font(.caption)
                         .foregroundStyle(Color.secondary)
+                }
+
+                if !item.tags.isEmpty {
+                    Text(TagText.display(item.tags))
+                        .font(.caption)
+                        .foregroundStyle(Color.accentColor)
+                        .lineLimit(1)
                 }
             }
 

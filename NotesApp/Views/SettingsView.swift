@@ -10,6 +10,10 @@ struct SettingsView: View {
     @AppStorage(SettingsKeys.defaultBeforeMin) private var defaultBefore = 15
     @AppStorage(SettingsKeys.aiEndpoint) private var aiEndpoint = ""
     @AppStorage(SettingsKeys.aiModel) private var aiModel = ""
+    @AppStorage(SettingsKeys.morningSummaryOn) private var morningOn = SummarySettings.standard.morningOn
+    @AppStorage(SettingsKeys.morningSummaryMinutes) private var morningMinutes = SummarySettings.standard.morningMinutes
+    @AppStorage(SettingsKeys.eveningSummaryOn) private var eveningOn = SummarySettings.standard.eveningOn
+    @AppStorage(SettingsKeys.eveningSummaryMinutes) private var eveningMinutes = SummarySettings.standard.eveningMinutes
     @State private var keyInput = ""
     @State private var savedKey: String?
     @State private var keyMessage: String?
@@ -23,6 +27,8 @@ struct SettingsView: View {
                 aiSection
 
                 notificationsSection
+
+                summarySection
 
                 Section {
                     DatePicker("Время для «завтра»", selection: defaultTime, displayedComponents: .hourAndMinute)
@@ -157,6 +163,34 @@ struct SettingsView: View {
         } header: {
             Text("Уведомления")
         }
+    }
+
+    private var summarySection: some View {
+        Section {
+            Toggle("Утренняя сводка", isOn: $morningOn)
+            if morningOn {
+                DatePicker("Во сколько", selection: minutesBinding($morningMinutes), displayedComponents: .hourAndMinute)
+            }
+            Toggle("План на завтра вечером", isOn: $eveningOn)
+            if eveningOn {
+                DatePicker("Во сколько", selection: minutesBinding($eveningMinutes), displayedComponents: .hourAndMinute)
+            }
+        } header: {
+            Text("Сводки")
+        } footer: {
+            Text("Утром — что сегодня, вечером — что завтра. Приходят, только когда есть дела.")
+        }
+    }
+
+    /// Время сводки хранится минутами от полуночи.
+    private func minutesBinding(_ minutes: Binding<Int>) -> Binding<Date> {
+        Binding(
+            get: { DateMath.atTime(Date(), hour: minutes.wrappedValue / 60, minute: minutes.wrappedValue % 60) },
+            set: { date in
+                let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
+                minutes.wrappedValue = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
+            }
+        )
     }
 
     private var statusText: String {

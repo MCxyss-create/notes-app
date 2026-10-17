@@ -8,6 +8,7 @@ struct ReminderInput {
     let dueAt: Date?
     let remindBeforeMin: Int?
     let isDone: Bool
+    var repeatRule: RepeatRule? = nil
 }
 
 /// Одно уведомление, которое надо поставить в iOS.
@@ -16,37 +17,67 @@ struct PlannedNotification: Equatable {
     let date: Date
     let title: String
     let body: String
+    /// Запись, к которой относится уведомление: по ней работают кнопки «Готово / Через час / Завтра».
+    var itemID: UUID? = nil
+    /// У повторяющегося дела в уведомлении только «Готово» (отложить нельзя — сдвинется весь повтор).
+    var repeating: Bool = false
 }
 
 enum NotificationPlanner {
-    /// iOS хранит до 64 запланированных уведомлений. 4 места оставляем
-    /// под проверочное уведомление и будущие сводки.
-    static let defaultLimit = 60
+    /// iOS хранит до 64 запланированных уведомлений: 56 — делам,
+    /// до 6 — сводкам, 1 — напоминанию о переподписи, 1 — проверочному.
+    static let defaultLimit = 56
     static let idPrefix = "item-"
+    /// Все уведомления, которые приложение пересчитывает само (проверочное сюда не входит).
+    static let managedPrefixes = [idPrefix, SummaryPlanner.idPrefix, "resign-"]
+    /// Повторяющееся дело: не дальше 35 дней и не больше 8 раз вперёд.
+    static let repeatHorizonDays = 35
+    static let perItemLimit = 8
 
-    /// Ближайшие уведомления по времени: точное и «заранее».
-    static func plan(_ reminders: [ReminderInput], now: Date, limit: Int = defaultLimit) -> [PlannedNotification] {
+    /// Ближайшие уведомления по времени: точное и «заранее», у повторяющихся — на каждый повтор.
+    static func plan(
+        _ reminders: [ReminderInput],
+        now: Date,
+        limit: Int = defaultLimit,
+        calendar: Calendar = .current
+    ) -> [PlannedNotification] {
+        let horizon = now.addingTimeInterval(TimeInterval(repeatHorizonDays * 86_400))
         var result: [PlannedNotification] = []
         for r in reminders where !r.isDone {
-            guard let due = r.dueAt, due > now else { continue }
-
+            guard let due = r.dueAt else { continue }
             let details = r.details?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            result.append(PlannedNotification(
-                id: "\(idPrefix)\(r.id.uuidString)-due",
-                date: due,
-                title: r.title,
-                body: details.isEmpty ? "Пора!" : details
-            ))
+            let dates = RepeatMath.upcoming(
+                start: due,
+                rule: r.repeatRule,
+                after: now,
+                until: r.repeatRule == nil ? .distantFuture : horizon,
+                limit: perItemLimit,
+                calendar: calendar
+            )
 
-            if let before = r.remindBeforeMin, before > 0 {
-                let early = due.addingTimeInterval(TimeInterval(-before * 60))
-                if early > now {
-                    result.append(PlannedNotification(
-                        id: "\(idPrefix)\(r.id.uuidString)-before",
-                        date: early,
-                        title: r.title,
-                        body: beforeText(before)
-                    ))
+            for date in dates {
+                let stamp = Int(date.timeIntervalSince1970)
+                result.append(PlannedNotification(
+                    id: "\(idPrefix)\(r.id.uuidString)-due-\(stamp)",
+                    date: date,
+                    title: r.title,
+                    body: details.isEmpty ? "Пора!" : details,
+                    itemID: r.id,
+                    repeating: r.repeatRule != nil
+                ))
+
+                if let before = r.remindBeforeMin, before > 0 {
+                    let early = date.addingTimeInterval(TimeInterval(-before * 60))
+                    if early > now {
+                        result.append(PlannedNotification(
+                            id: "\(idPrefix)\(r.id.uuidString)-before-\(stamp)",
+                            date: early,
+                            title: r.title,
+                            body: beforeText(before),
+                            itemID: r.id,
+                            repeating: r.repeatRule != nil
+                        ))
+                    }
                 }
             }
         }

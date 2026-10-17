@@ -39,7 +39,7 @@ final class NotificationPlannerTests: XCTestCase {
         XCTAssertEqual(plan.map(\.date), [TestCalendar.date("2026-10-16 22:30")])
     }
 
-    /// 100 дел → ставим только 60 ближайших, по порядку.
+    /// 100 дел → ставим только ближайшие (56: остальные места — сводкам и переподписи), по порядку.
     func testLimitKeepsNearest() {
         let many = (1...100).map { i in
             ReminderInput(id: UUID(), title: "Дело \(i)", details: nil,
@@ -48,11 +48,43 @@ final class NotificationPlannerTests: XCTestCase {
         }
 
         let plan = NotificationPlanner.plan(many, now: now)
+        let limit = NotificationPlanner.defaultLimit
 
-        XCTAssertEqual(plan.count, 60)
+        XCTAssertEqual(limit, 56)
+        XCTAssertEqual(plan.count, limit)
         XCTAssertEqual(plan.first?.title, "Дело 1")
-        XCTAssertEqual(plan.last?.title, "Дело 60")
+        XCTAssertEqual(plan.last?.title, "Дело \(limit)")
         XCTAssertTrue(zip(plan, plan.dropFirst()).allSatisfy { $0.date <= $1.date })
+    }
+
+    /// Уведомление знает свою запись — для кнопок «Готово / Через час / Завтра».
+    func testNotificationsCarryItemID() {
+        let r = reminder("кнопки", "2026-10-17 09:00")
+        let plan = NotificationPlanner.plan([r], now: now)
+
+        XCTAssertEqual(plan.map(\.itemID), [r.id, r.id])
+        XCTAssertFalse(plan.contains { $0.repeating })
+    }
+
+    /// «Каждый день в 9»: срок уже прошёл, но следующие дни ставятся — до 8 раз вперёд, без повторов id.
+    func testDailyRepeatSchedulesNextDays() {
+        let r = ReminderInput(id: UUID(), title: "Витамины", details: nil,
+                              dueAt: TestCalendar.date("2026-10-10 09:00"),
+                              remindBeforeMin: nil, isDone: false, repeatRule: .daily)
+
+        let plan = NotificationPlanner.plan([r], now: now, calendar: TestCalendar.moscow)
+
+        XCTAssertEqual(plan.count, NotificationPlanner.perItemLimit)
+        XCTAssertEqual(plan.first?.date, TestCalendar.date("2026-10-17 09:00"))
+        XCTAssertEqual(plan.last?.date, TestCalendar.date("2026-10-24 09:00"))
+        XCTAssertEqual(Set(plan.map(\.id)).count, plan.count)
+        XCTAssertTrue(plan.allSatisfy { $0.repeating })
+    }
+
+    /// Дело через 2 месяца без повтора всё равно ставится (ограничение в 35 дней — только для повторов).
+    func testFarReminderIsScheduled() {
+        let plan = NotificationPlanner.plan([reminder("далеко", "2026-12-20 10:00", before: nil)], now: now)
+        XCTAssertEqual(plan.map(\.date), [TestCalendar.date("2026-12-20 10:00")])
     }
 
     func testIdsAreStable() {

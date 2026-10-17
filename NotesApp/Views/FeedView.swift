@@ -7,8 +7,6 @@ struct FeedView: View {
 
     @Environment(\.modelContext) private var context
     @Query(sort: \Item.createdAt, order: .reverse) private var items: [Item]
-    @AppStorage(SettingsKeys.defaultHour) private var defaultHour = 9
-    @AppStorage(SettingsKeys.defaultMinute) private var defaultMinute = 0
 
     var body: some View {
         let reminders = items.filter { $0.kind == .reminder }
@@ -61,7 +59,8 @@ struct FeedView: View {
                 .tint(.green)
             }
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                if !item.isDone {
+                // Повторяющееся дело не откладываем: сдвинулся бы весь повтор.
+                if !item.isDone && item.repeatRule == nil {
                     Button {
                         snooze(item, .tomorrow)
                     } label: {
@@ -98,27 +97,16 @@ struct FeedView: View {
             }
     }
 
+    /// Повторяющееся дело при «Готово» переезжает на следующий раз.
     private func toggleDone(_ item: Item) {
         withAnimation {
-            item.isDone.toggle()
-            item.doneAt = item.isDone ? Date() : nil
+            ItemActions.toggleDone(item)
         }
     }
 
     private func snooze(_ item: Item, _ option: SnoozeOption) {
-        let newDate = DateMath.snooze(
-            option,
-            due: item.dueAt,
-            timeGiven: item.timeGiven,
-            defaultHour: defaultHour,
-            defaultMinute: defaultMinute,
-            now: Date()
-        )
         withAnimation {
-            item.dueAt = newDate
-            if option != .tomorrow { item.timeGiven = true }
-            item.isDone = false
-            item.doneAt = nil
+            ItemActions.snooze(item, option)
         }
     }
 }

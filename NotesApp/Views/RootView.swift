@@ -78,7 +78,7 @@ struct RootView: View {
                     .accessibilityLabel("Настройки")
                 }
             }
-            .sheet(isPresented: $showSettings) {
+            .sheet(isPresented: $showSettings, onDismiss: reschedule) {
                 SettingsView()
             }
             .sheet(item: $editing) { item in
@@ -153,6 +153,7 @@ struct RootView: View {
             hasher.combine(item.dueAt)
             hasher.combine(item.isDone)
             hasher.combine(item.remindBeforeMin)
+            hasher.combine(item.repeatRaw)
         }
         return hasher.finalize()
     }
@@ -171,10 +172,7 @@ struct RootView: View {
 
     private func reschedule() {
         guard demo == nil, !AppEnvironment.isRunningTests else { return }
-        let reminders = allItems
-            .filter { $0.kind == .reminder }
-            .map { ReminderInput(item: $0) }
-        NotificationService.shared.reschedule(NotificationPlanner.plan(reminders, now: Date()))
+        NotificationScheduler.rescheduleAll(items: allItems)
     }
 
     private func applyDemo(_ demo: DemoConfig) {

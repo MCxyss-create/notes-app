@@ -11,9 +11,11 @@ struct EditItemView: View {
     @State private var due: Date
     @State private var confirmDelete = false
     @State private var deleted = false
+    @State private var tagsText: String
 
     init(item: Item) {
         _item = Bindable(wrappedValue: item)
+        _tagsText = State(initialValue: item.tags.joined(separator: ", "))
         _hasDue = State(initialValue: item.dueAt != nil)
         _due = State(initialValue: item.dueAt
                      ?? DateMath.tomorrow(hour: AppDefaults.hour, minute: AppDefaults.minute, from: Date()))
@@ -39,6 +41,16 @@ struct EditItemView: View {
 
                 if item.kind == .reminder {
                     reminderSection
+                }
+
+                Section {
+                    TextField("например: школа, сервер", text: $tagsText)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                } header: {
+                    Text("Теги")
+                } footer: {
+                    Text("Через запятую. В поиске — #тег.")
                 }
 
                 Section {
@@ -78,10 +90,13 @@ struct EditItemView: View {
                 }
             }
             .onChange(of: due) { _, newValue in
-                if hasDue {
+                if hasDue, item.dueAt != newValue {
                     item.dueAt = newValue
                     item.timeGiven = true
                 }
+            }
+            .onChange(of: tagsText) { _, value in
+                item.tags = TagText.parse(value)
             }
             .onDisappear {
                 guard !deleted else { return }
@@ -93,7 +108,7 @@ struct EditItemView: View {
     }
 
     private var reminderSection: some View {
-        Section("Срок") {
+        Section {
             Toggle("Напомнить", isOn: $hasDue)
             if hasDue {
                 DatePicker("Когда", selection: $due)
@@ -102,9 +117,28 @@ struct EditItemView: View {
                         Text(option.title).tag(option.minutes)
                     }
                 }
+                Picker("Повтор", selection: repeatBinding) {
+                    Text("Не повторять").tag(RepeatRule?.none)
+                    ForEach(RepeatRule.allCases, id: \.self) { rule in
+                        Text(rule.title).tag(RepeatRule?.some(rule))
+                    }
+                }
             }
             Toggle("Выполнено", isOn: doneBinding)
+        } header: {
+            Text("Срок")
+        } footer: {
+            if item.repeatRule != nil {
+                Text("Повторяется: «Выполнено» переносит дело на следующий раз.")
+            }
         }
+    }
+
+    private var repeatBinding: Binding<RepeatRule?> {
+        Binding(
+            get: { item.repeatRule },
+            set: { item.repeatRule = $0 }
+        )
     }
 
     private var detailsBinding: Binding<String> {
@@ -132,8 +166,14 @@ struct EditItemView: View {
         Binding(
             get: { item.isDone },
             set: { newValue in
-                item.isDone = newValue
-                item.doneAt = newValue ? Date() : nil
+                if newValue {
+                    // У повторяющегося дела срок переезжает на следующий раз.
+                    ItemActions.complete(item)
+                    if let next = item.dueAt { due = next }
+                } else {
+                    item.isDone = false
+                    item.doneAt = nil
+                }
             }
         )
     }
