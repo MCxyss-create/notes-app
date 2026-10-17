@@ -5,11 +5,12 @@ import SwiftData
 struct SearchView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Item.createdAt, order: .reverse) private var items: [Item]
-    @State private var query: String
+    @State private var query = ""
     @State private var editing: Item?
+    private let initialQuery: String
 
     init(initialQuery: String = "") {
-        _query = State(initialValue: initialQuery)
+        self.initialQuery = initialQuery
     }
 
     private struct TagCount: Hashable {
@@ -37,6 +38,12 @@ struct SearchView: View {
             }
             .sheet(item: $editing) { item in
                 EditItemView(item: item)
+            }
+            .task {
+                // Поле поиска при появлении обнуляет текст, поэтому начальный запрос — чуть позже.
+                guard !initialQuery.isEmpty else { return }
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                query = initialQuery
             }
         }
     }
