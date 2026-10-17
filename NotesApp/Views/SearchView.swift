@@ -1,6 +1,12 @@
 import SwiftUI
 import SwiftData
 
+/// Запрос на открытие поиска (пустой — просто открыть).
+struct SearchRequest: Identifiable {
+    let id = UUID()
+    let query: String
+}
+
 /// Поиск по всем записям. Пустой запрос — список тегов.
 struct SearchView: View {
     @Environment(\.dismiss) private var dismiss

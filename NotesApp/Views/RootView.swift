@@ -37,8 +37,8 @@ struct RootView: View {
     @State private var page: MainPage = .feed
     @State private var showSettings = false
     @State private var showInbox = false
-    @State private var showSearch = false
-    @State private var searchQuery = ""
+    /// Открытый поиск и с каким запросом. Через item, чтобы запрос не терялся при открытии.
+    @State private var search: SearchRequest?
     @State private var editing: Item?
 
     var body: some View {
@@ -78,7 +78,7 @@ struct RootView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        showSearch = true
+                        search = SearchRequest(query: "")
                     } label: {
                         Image(systemName: "magnifyingglass")
                     }
@@ -102,8 +102,8 @@ struct RootView: View {
             .sheet(isPresented: $showInbox) {
                 InboxView()
             }
-            .sheet(isPresented: $showSearch) {
-                SearchView(initialQuery: searchQuery)
+            .sheet(item: $search) { request in
+                SearchView(initialQuery: request.query)
             }
         }
         .onChange(of: signature) {
@@ -217,8 +217,7 @@ struct RootView: View {
         case .inbox:
             showInbox = true
         case .search:
-            searchQuery = "#школа"
-            showSearch = true
+            search = SearchRequest(query: "#школа")
         case .ideas:
             page = .ideas
         case .notes:
