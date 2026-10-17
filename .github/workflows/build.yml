@@ -1,5 +1,6 @@
-# Сборка неподписанного NotesApp.ipa на облачном Mac GitHub.
-# Готовый файл лежит во вкладке Actions → нужный запуск → Artifacts.
+# Сборка неподписанного NotesApp.ipa на облачном Mac GitHub + автотесты и снимки экранов.
+# Готовый .ipa — вкладка Actions → нужный запуск → Artifacts.
+# Логи, ошибки и снимки экранов последнего запуска — ветка ci-results.
 # Подпись и установка на iPhone — через Sideloadly на Windows.
 
 name: Build IPA
@@ -9,10 +10,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
 
     steps:
       - name: Получить код
@@ -20,8 +24,8 @@ jobs:
 
       - name: Версии macOS и Xcode
         run: |
-          sw_vers
-          xcodebuild -version
+          mkdir -p ci/screens
+          { sw_vers; xcodebuild -version; } | tee ci/versions.txt
 
       - name: Установить XcodeGen
         run: brew install xcodegen
@@ -29,21 +33,28 @@ jobs:
       - name: Сгенерировать проект Xcode
         run: xcodegen generate
 
-      - name: Собрать без подписи
+      - name: Собрать для iPhone без подписи
         run: |
-          xcodebuild \
-            -project NotesApp.xcodeproj \
-            -scheme NotesApp \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            -derivedDataPath build \
-            -quiet \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
-            build
+          if ! xcodebuild \
+              -project NotesApp.xcodeproj \
+              -scheme NotesApp \
+              -configuration Release \
+              -sdk iphoneos \
+              -destination 'generic/platform=iOS' \
+              -derivedDataPath build \
+              -quiet \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+              build > ci/device-build.log 2>&1; then
+            echo "Сборка для iPhone упала. Ошибки:"
+            grep -E "error:" ci/device-build.log | sort -u | head -40 | tee ci/errors.txt
+            grep -E "error:" ci/device-build.log | sort -u | head -10 | sed 's/^/::error::/'
+            tail -30 ci/device-build.log
+            exit 1
+          fi
+          echo "Сборка для iPhone прошла. Предупреждений: $(grep -c 'warning:' ci/device-build.log || true)"
 
       - name: Упаковать в .ipa
         run: |
@@ -57,7 +68,7 @@ jobs:
           mkdir -p out/Payload
           cp -R "$APP" out/Payload/
           (cd out && zip -qry NotesApp.ipa Payload)
-          SIZE=$(du -h out/NotesApp.ipa | cut -f1)
+          SIZE=$(du -h out/NotesApp.ipa | awk '{print $1}')
           echo "Готово: out/NotesApp.ipa, размер $SIZE, сборка ${{ github.run_number }}"
           {
             echo "## NotesApp.ipa готов"
@@ -75,3 +86,107 @@ jobs:
           path: out/NotesApp.ipa
           if-no-files-found: error
           retention-days: 30
+
+      - name: Тесты и снимки экранов на виртуальном iPhone
+        run: |
+          SIM=$(xcrun simctl list devices available -j | jq -r '
+            .devices | to_entries
+            | map(select(.key | test("iOS")) | select(.value | length > 0))
+            | sort_by(.key) | last | .value
+            | map(select(.name | startswith("iPhone")))
+            | (map(select(.name | test("Pro$"))) + .)
+            | .[0].udid // empty')
+          if [ -z "$SIM" ]; then
+            echo "::error::Не найден виртуальный iPhone"
+            xcrun simctl list devices available | tee ci/simulators.txt
+            exit 1
+          fi
+          xcrun simctl list devices available | grep "$SIM" | tee ci/simulator.txt
+          xcrun simctl boot "$SIM" || true
+          xcrun simctl bootstatus "$SIM" -b > /dev/null
+
+          if ! xcodebuild build-for-testing \
+              -project NotesApp.xcodeproj -scheme NotesApp -configuration Debug \
+              -destination "id=$SIM" -derivedDataPath build-sim -quiet \
+              CODE_SIGNING_ALLOWED=NO > ci/sim-build.log 2>&1; then
+            echo "Сборка для виртуального iPhone упала. Ошибки:"
+            grep -E "error:" ci/sim-build.log | sort -u | head -40 | tee ci/errors.txt
+            grep -E "error:" ci/sim-build.log | sort -u | head -10 | sed 's/^/::error::/'
+            tail -30 ci/sim-build.log
+            exit 1
+          fi
+
+          TEST_RC=0
+          xcodebuild test-without-building \
+              -project NotesApp.xcodeproj -scheme NotesApp -configuration Debug \
+              -destination "id=$SIM" -derivedDataPath build-sim \
+              > ci/tests.log 2>&1 || TEST_RC=$?
+          RESULT=$(grep -E "Executed [0-9]+ tests?" ci/tests.log | tail -1 | sed 's/^[[:space:]]*//')
+          echo "Тесты: ${RESULT:-нет данных} (код $TEST_RC)"
+          if [ "$TEST_RC" != "0" ]; then
+            grep -E "error:|failed" ci/tests.log | sort -u | head -40 | tee -a ci/errors.txt
+            grep -E "error:" ci/tests.log | sort -u | head -10 | sed 's/^/::error::/'
+          fi
+
+          APP="build-sim/Build/Products/Debug-iphonesimulator/NotesApp.app"
+          BID="com.mysli.notes.k7q2"
+          xcrun simctl install "$SIM" "$APP"
+          xcrun simctl status_bar "$SIM" override --time "9:41" --batteryState charged --batteryLevel 100 \
+            --wifiBars 3 --cellularBars 4 || true
+
+          shot() {
+            xcrun simctl terminate "$SIM" "$BID" > /dev/null 2>&1 || true
+            xcrun simctl launch "$SIM" "$BID" -demo "$1" > /dev/null 2>&1 || echo "Не запустилось: $1"
+            sleep 5
+            if xcrun simctl io "$SIM" screenshot "ci/screens/$2.png" > /dev/null 2>&1; then
+              echo "Снимок: $2"
+            else
+              echo "Снимок не получился: $2"
+            fi
+          }
+
+          xcrun simctl ui "$SIM" appearance light || true
+          shot feed 1-lenta
+          shot due 2-kogda-napomnit
+          shot edit 3-izmenit
+          shot ideas 4-idei
+          shot notes 5-zametki
+          shot settings 6-nastroiki
+          shot empty 7-pusto
+          xcrun simctl ui "$SIM" appearance dark || true
+          shot feed 8-lenta-temnaya
+
+          {
+            echo "## Тесты"
+            echo ""
+            echo "${RESULT:-нет данных}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $TEST_RC
+
+      - name: Выложить логи и снимки в ветку ci-results
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p ci
+          cd ci
+          echo "${{ github.run_number }}" > run.txt
+          echo "${{ github.sha }}" > commit.txt
+          git init -q
+          git checkout -q -b ci-results
+          git add -A
+          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" \
+            commit -qm "Результаты сборки ${{ github.run_number }}"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" ci-results
+          SHA=$(git rev-parse HEAD)
+          if ls screens/*.png > /dev/null 2>&1; then
+            {
+              echo "## Снимки экранов"
+              echo ""
+              echo "<p>"
+              for f in screens/*.png; do
+                echo "<img src=\"https://raw.githubusercontent.com/${{ github.repository }}/$SHA/$f\" width=\"200\">"
+              done
+              echo "</p>"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

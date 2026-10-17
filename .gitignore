@@ -11,3 +11,7 @@ DerivedData/
 # Системный мусор
 .DS_Store
 Thumbs.db
+
+# Результаты сборки в GitHub
+ci/
+build-sim/
