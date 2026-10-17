@@ -3,12 +3,14 @@ import SwiftData
 
 /// Поиск по всем записям. Пустой запрос — список тегов.
 struct SearchView: View {
-    var initialQuery: String = ""
-
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Item.createdAt, order: .reverse) private var items: [Item]
-    @State private var query = ""
+    @State private var query: String
     @State private var editing: Item?
+
+    init(initialQuery: String = "") {
+        _query = State(initialValue: initialQuery)
+    }
 
     private struct TagCount: Hashable {
         let tag: String
@@ -35,9 +37,6 @@ struct SearchView: View {
             }
             .sheet(item: $editing) { item in
                 EditItemView(item: item)
-            }
-            .onAppear {
-                if query.isEmpty { query = initialQuery }
             }
         }
     }
