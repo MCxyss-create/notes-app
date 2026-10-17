@@ -31,9 +31,12 @@ struct RootView: View {
     let demo: DemoConfig?
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.modelContext) private var context
     @Query(sort: \Item.createdAt) private var allItems: [Item]
+    @Query(sort: \InboxEntry.createdAt) private var inbox: [InboxEntry]
     @State private var page: MainPage = .feed
     @State private var showSettings = false
+    @State private var showInbox = false
     @State private var editing: Item?
 
     var body: some View {
@@ -48,6 +51,10 @@ struct RootView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
 
+                if !inbox.isEmpty {
+                    inboxBanner
+                }
+
                 content
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -55,7 +62,8 @@ struct RootView: View {
                 ComposerBar(
                     defaultKind: page.kind,
                     autoFocus: demo == nil,
-                    demoShowDue: demo?.screen == .due
+                    demoShowDue: demo?.screen == .due,
+                    demoReview: demo?.screen == .review ? DemoData.review() : nil
                 )
             }
             .navigationTitle("Мысли")
@@ -76,12 +84,18 @@ struct RootView: View {
             .sheet(item: $editing) { item in
                 EditItemView(item: item)
             }
+            .sheet(isPresented: $showInbox) {
+                InboxView()
+            }
         }
         .onChange(of: signature) {
             reschedule()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { reschedule() }
+            if phase == .active {
+                reschedule()
+                InboxProcessor.shared.kick()
+            }
         }
         .task {
             await start()
@@ -98,6 +112,34 @@ struct RootView: View {
         case .notes:
             ItemListView(kind: .note, onEdit: { editing = $0 })
         }
+    }
+
+    /// Фразы, которые ИИ не разобрал сразу. Разобранные ждут подтверждения.
+    private var inboxBanner: some View {
+        let ready = inbox.filter { $0.parsedJSON != nil }.count
+        return Button {
+            showInbox = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: ready > 0 ? "tray.full.fill" : "tray.full")
+                Text("Входящие: \(inbox.count)")
+                    .fontWeight(.semibold)
+                if ready > 0 {
+                    Text("· разобрано \(ready)")
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+            }
+            .font(.subheadline)
+            .foregroundStyle(Color.primary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Color.orange.opacity(0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
     }
 
     /// Меняется при любой правке записей → уведомления пересчитываются сами.
@@ -122,6 +164,7 @@ struct RootView: View {
             return
         }
         if AppEnvironment.isRunningTests { return }
+        InboxProcessor.shared.start(context: context)
         await NotificationService.shared.requestIfNeeded()
         reschedule()
     }
@@ -136,8 +179,10 @@ struct RootView: View {
 
     private func applyDemo(_ demo: DemoConfig) {
         switch demo.screen {
-        case .feed, .due, .empty:
+        case .feed, .due, .empty, .review:
             break
+        case .inbox:
+            showInbox = true
         case .ideas:
             page = .ideas
         case .notes:

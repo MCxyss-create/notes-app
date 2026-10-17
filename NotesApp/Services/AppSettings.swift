@@ -5,6 +5,10 @@ enum SettingsKeys {
     static let defaultHour = "defaultHour"
     static let defaultMinute = "defaultMinute"
     static let defaultBeforeMin = "defaultBeforeMin"
+    /// Кнопка ✨ у поля ввода: разбирать фразу через ИИ.
+    static let aiEnabled = "aiEnabled"
+    static let aiEndpoint = "aiEndpoint"
+    static let aiModel = "aiModel"
 }
 
 /// Значения настроек для кода вне экранов.

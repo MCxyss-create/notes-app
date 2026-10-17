@@ -88,6 +88,9 @@ jobs:
           retention-days: 30
 
       - name: Тесты и снимки экранов на виртуальном iPhone
+        env:
+          # Необязательно: с этим секретом тесты проверяют 8 контрольных фраз на настоящем DeepSeek.
+          TEST_RUNNER_DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           SIM=$(xcrun simctl list devices available -j | jq -r '
             .devices | to_entries
@@ -127,6 +130,8 @@ jobs:
             grep -E "error:|failed" ci/tests.log | sort -u | head -40 | tee -a ci/errors.txt
             grep -E "error:" ci/tests.log | sort -u | head -10 | sed 's/^/::error::/'
           fi
+          grep -h "AI-CHECK " ci/tests.log | sed 's/^.*AI-CHECK //' > ci/ai-check.txt || true
+          [ -s ci/ai-check.txt ] && cat ci/ai-check.txt || rm -f ci/ai-check.txt
 
           APP="build-sim/Build/Products/Debug-iphonesimulator/NotesApp.app"
           BID="com.mysli.notes.k7q2"
@@ -153,6 +158,8 @@ jobs:
           shot notes 5-zametki
           shot settings 6-nastroiki
           shot empty 7-pusto
+          shot review 9-ii-kartochki
+          shot inbox 9-vhodyaschie
           xcrun simctl ui "$SIM" appearance dark || true
           shot feed 8-lenta-temnaya
 
@@ -160,6 +167,12 @@ jobs:
             echo "## Тесты"
             echo ""
             echo "${RESULT:-нет данных}"
+            if [ -f ci/ai-check.txt ]; then
+              echo ""
+              echo "## 8 контрольных фраз на DeepSeek"
+              echo ""
+              sed 's/^/- /' ci/ai-check.txt
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
           exit $TEST_RC
 

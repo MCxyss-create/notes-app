@@ -22,7 +22,7 @@ struct MysliApp: App {
         let inMemory = demo != nil || AppEnvironment.isRunningTests
         do {
             let config = ModelConfiguration(isStoredInMemoryOnly: inMemory)
-            container = try ModelContainer(for: Item.self, configurations: config)
+            container = try ModelContainer(for: Item.self, InboxEntry.self, configurations: config)
         } catch {
             fatalError("Не удалось открыть базу записей: \(error)")
         }

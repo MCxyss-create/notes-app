@@ -8,6 +8,11 @@ struct SettingsView: View {
     @AppStorage(SettingsKeys.defaultHour) private var defaultHour = 9
     @AppStorage(SettingsKeys.defaultMinute) private var defaultMinute = 0
     @AppStorage(SettingsKeys.defaultBeforeMin) private var defaultBefore = 15
+    @AppStorage(SettingsKeys.aiEndpoint) private var aiEndpoint = ""
+    @AppStorage(SettingsKeys.aiModel) private var aiModel = ""
+    @State private var keyInput = ""
+    @State private var savedKey: String?
+    @State private var keyMessage: String?
     @State private var status: UNAuthorizationStatus = .notDetermined
     @State private var pending = 0
     @State private var testMessage: String?
@@ -15,6 +20,8 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                aiSection
+
                 notificationsSection
 
                 Section {
@@ -49,6 +56,71 @@ struct SettingsView: View {
                     Task { await refresh() }
                 }
             }
+        }
+    }
+
+    private var aiSection: some View {
+        Section {
+            if let savedKey {
+                LabeledContent("Ключ", value: "••••" + String(savedKey.suffix(4)))
+                Button("Удалить ключ", role: .destructive) {
+                    KeychainStore.delete(AISettings.keyAccount)
+                    self.savedKey = nil
+                    keyMessage = nil
+                }
+            } else {
+                SecureField("Ключ API (sk-…)", text: $keyInput)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                Button("Сохранить ключ") {
+                    saveKey()
+                }
+                .disabled(keyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            if let keyMessage {
+                Text(keyMessage)
+                    .font(.footnote)
+                    .foregroundStyle(Color.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Адрес API")
+                    .font(.caption)
+                    .foregroundStyle(Color.secondary)
+                TextField("Адрес API", text: $aiEndpoint, prompt: Text(AIConfig.defaultEndpoint))
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Модель")
+                    .font(.caption)
+                    .foregroundStyle(Color.secondary)
+                TextField("Модель", text: $aiModel, prompt: Text(AIConfig.defaultModel))
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+
+            NavigationLink("Проверить разбор: 8 фраз") {
+                AICheckView()
+            }
+        } header: {
+            Text("ИИ DeepSeek")
+        } footer: {
+            Text("Ключ хранится в связке ключей iPhone. Фраза уходит в DeepSeek, только когда у поля ввода включена ✨. Пустые адрес и модель — значения по умолчанию.")
+        }
+    }
+
+    private func saveKey() {
+        let key = keyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { return }
+        if KeychainStore.save(key, account: AISettings.keyAccount) {
+            savedKey = key
+            keyInput = ""
+            keyMessage = "Ключ сохранён. Проверь его: «Проверить разбор»."
+            Task { await InboxProcessor.shared.keyChanged() }
+        } else {
+            keyMessage = "Не удалось сохранить ключ в связку ключей."
         }
     }
 
@@ -118,6 +190,7 @@ struct SettingsView: View {
     }
 
     private func refresh() async {
+        savedKey = AISettings.apiKey
         status = await NotificationService.shared.status()
         pending = await NotificationService.shared.pendingCount()
     }

@@ -12,6 +12,8 @@ struct DemoConfig: Equatable {
         case notes
         case settings
         case empty
+        case review
+        case inbox
     }
 
     let screen: Screen
@@ -56,6 +58,47 @@ enum DemoData {
         for item in items {
             context.insert(item)
         }
+        if screen == .inbox {
+            for entry in inboxEntries(now: now) {
+                context.insert(entry)
+            }
+        }
         try? context.save()
+    }
+
+    /// Карточки «вот что я понял» для снимка: ответ модели разбирает настоящий AIParser.
+    static func review(now: Date = Date()) -> AIReview {
+        let phrase = "в 7 вечера оплатить сервер и завтра утром сдать пробник, идея: бот для отчётов"
+        let json = """
+        {"items":[
+          {"kind":"reminder","title":"Оплатить сервер","body":null,"due":"\(tomorrowISO(19, now: now))","time_given":true,"remind_before_min":15,"repeat":null,"tags":["сервер"]},
+          {"kind":"reminder","title":"Сдать пробник","body":null,"due":"\(tomorrowISO(9, now: now))","time_given":true,"remind_before_min":15,"repeat":null,"tags":["школа"]},
+          {"kind":"idea","title":"Бот для отчётов","body":"Сам собирает отчёт за неделю","due":null,"time_given":false,"remind_before_min":null,"repeat":null,"tags":[]}
+        ],"reply":"Два напоминания на завтра и одна идея."}
+        """
+        let result = (try? AIParser.parse(json, reference: now, now: now,
+                                          defaults: ParseDefaults(hour: 9, minute: 0, beforeMin: 15),
+                                          calendar: AISettings.calendar))
+            ?? AIResult(reply: "Демо-ответ не разобрался", drafts: [])
+        return AIReview(phrase: phrase, reply: result.reply, drafts: result.drafts)
+    }
+
+    private static func inboxEntries(now: Date) -> [InboxEntry] {
+        let parsed = InboxEntry(text: "завтра в 12 забрать куртку из химчистки", createdAt: now.addingTimeInterval(-3 * 3600))
+        parsed.parsedJSON = """
+        {"items":[{"kind":"reminder","title":"Забрать куртку из химчистки","due":"\(tomorrowISO(12, now: now))","time_given":true,"remind_before_min":15,"tags":[]}],"reply":"Напоминание на завтра, 12:00."}
+        """
+        let waiting = InboxEntry(text: "идея: напоминать пить воду каждые два часа", createdAt: now.addingTimeInterval(-20 * 60))
+        let failed = InboxEntry(text: "купить подарок Лёше до среды", createdAt: now.addingTimeInterval(-26 * 3600))
+        failed.lastError = AIError.http(401, nil).message
+        return [failed, parsed, waiting]
+    }
+
+    private static func tomorrowISO(_ hour: Int, now: Date) -> String {
+        let calendar = AISettings.calendar
+        let day = calendar.date(byAdding: .day, value: 1, to: now) ?? now
+        let formatter = ISO8601DateFormatter()
+        formatter.timeZone = calendar.timeZone
+        return formatter.string(from: DateMath.atTime(day, hour: hour, minute: 0, calendar: calendar))
     }
 }

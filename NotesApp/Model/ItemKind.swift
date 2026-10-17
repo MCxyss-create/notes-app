@@ -30,6 +30,14 @@ enum RepeatRule: String, CaseIterable, Codable {
     case daily
     case weekly
     case monthly
+
+    var title: String {
+        switch self {
+        case .daily: return "Каждый день"
+        case .weekly: return "Каждую неделю"
+        case .monthly: return "Каждый месяц"
+        }
+    }
 }
 
 /// Откуда взялась запись.
