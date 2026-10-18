@@ -93,7 +93,8 @@ enum DemoData {
     static func commandReview(now: Date = Date()) -> AIReview {
         let calendar = AISettings.calendar
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) ?? now
-        var monday = tomorrow
+        // Понедельник после завтрашнего дня: иначе в воскресенье «перенос» был бы на тот же день.
+        var monday = calendar.date(byAdding: .day, value: 1, to: tomorrow) ?? tomorrow
         while calendar.component(.weekday, from: monday) != 2 {
             monday = calendar.date(byAdding: .day, value: 1, to: monday) ?? monday
         }
