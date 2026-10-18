@@ -11,8 +11,7 @@ enum Keyboard {
 
 extension View {
     /// Клавиатура убирается свайпом вниз по списку (уезжает за пальцем), тапом по пустому месту
-    /// и кнопкой ⌄ над клавиатурой. Вешать на экран один раз, внутри NavigationStack, —
-    /// иначе кнопка ⌄ задвоится.
+    /// и кнопкой ⌄ над клавиатурой. Вешать на экран один раз — иначе кнопка ⌄ задвоится.
     func keyboardDismissable() -> some View {
         modifier(KeyboardDismissable())
     }
@@ -24,20 +23,40 @@ extension View {
 }
 
 private struct KeyboardDismissable: ViewModifier {
+    @State private var keyboardShown = false
+
     func body(content: Content) -> some View {
         content
             .scrollDismissesKeyboard(.interactively)
             .background { KeyboardGestureCatcher(gesture: .tap) }
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button {
-                        Keyboard.hide()
-                    } label: {
-                        Image(systemName: "keyboard.chevron.compact.down")
+            // Своя кнопка, а не ToolbarItemGroup(placement: .keyboard): в iOS 26 та висит поверх
+            // кнопки «отправить» у панели ввода, а у поля поиска её нет вовсе.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if keyboardShown {
+                    HStack {
+                        Spacer()
+                        Button {
+                            Keyboard.hide()
+                        } label: {
+                            Image(systemName: "keyboard.chevron.compact.down")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(Color.primary)
+                                .frame(width: 52, height: 36)
+                                .background(.regularMaterial, in: Capsule())
+                                .shadow(color: .black.opacity(0.12), radius: 4, y: 1)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Убрать клавиатуру")
                     }
-                    .accessibilityLabel("Убрать клавиатуру")
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 6)
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                keyboardShown = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                keyboardShown = false
             }
     }
 }
