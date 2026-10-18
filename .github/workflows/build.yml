@@ -1,7 +1,7 @@
 # Сборка неподписанного NotesApp.ipa на облачном Mac GitHub + автотесты и снимки экранов.
 # Готовый .ipa — вкладка Actions → нужный запуск → Artifacts.
 # Логи, ошибки и снимки экранов последнего запуска — ветка ci-results.
-# Подпись и установка на iPhone — через Sideloadly на Windows.
+# Подпись и установка на iPhone — через iloader на Windows (Import IPA).
 
 name: Build IPA
 
@@ -82,7 +82,7 @@ jobs:
             echo "- Сборка: **${{ github.run_number }}**"
             echo "- Размер: **$SIZE**"
             echo "- Скачать: блок **Artifacts** ниже на этой странице"
-            echo "- Установить: распаковать zip → перетащить NotesApp.ipa в Sideloadly → Start"
+            echo "- Установить: распаковать zip → iloader → Import IPA → выбрать NotesApp.ipa"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Выложить .ipa

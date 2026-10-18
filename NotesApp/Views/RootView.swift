@@ -160,11 +160,11 @@ struct RootView: View {
         .padding(.bottom, 8)
     }
 
-    /// Подпись Sideloadly скоро кончится — после этого приложение не откроется до переустановки.
+    /// Бесплатная подпись скоро кончится — после этого приложение не откроется до переустановки.
     private func resignBanner(_ expiry: Date) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
-            Text("Подпись кончится \(DateText.short(expiry).lowercasedFirst). Переустанови через Sideloadly — записи сохранятся.")
+            Text("Подпись кончится \(DateText.short(expiry).lowercasedFirst). Переустанови через iloader — записи сохранятся.")
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Срок бесплатной подписи Sideloadly — 7 дней. Дата лежит в embedded.mobileprovision.
+/// Срок бесплатной подписи (iloader, бесплатный Apple ID) — 7 дней. Дата лежит в embedded.mobileprovision.
 enum ProvisionInfo {
     /// nil — сборка без подписи (например, в GitHub) или файла нет.
     static let expirationDate: Date? = {
@@ -38,7 +38,7 @@ enum ResignPlanner {
             date: fire,
             title: "Пора переустановить «Мысли»",
             body: "Подпись кончится \(DateText.short(expiration, now: fire).lowercasedFirst). "
-                + "Подключи iPhone к компьютеру и нажми Start в Sideloadly — записи сохранятся."
+                + "Подключи iPhone к компьютеру: iloader → Import IPA — записи сохранятся."
         )
     }
 

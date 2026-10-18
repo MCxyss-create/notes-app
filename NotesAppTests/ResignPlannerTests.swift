@@ -4,7 +4,7 @@ import XCTest
 final class ResignPlannerTests: XCTestCase {
     private func d(_ text: String) -> Date { TestCalendar.date(text) }
 
-    /// Профиль Sideloadly: мусор подписи вокруг обычного plist.
+    /// Профиль бесплатной подписи: мусор подписи вокруг обычного plist.
     func testReadsExpirationFromProfile() {
         let plist = """
         <?xml version="1.0" encoding="UTF-8"?>
