@@ -43,6 +43,11 @@ final class NotificationService {
         await center.notificationSettings().authorizationStatus
     }
 
+    /// «Срочные»: включены, выключены в настройках iPhone или не разрешены подписью.
+    func timeSensitive() async -> UNNotificationSetting {
+        await center.notificationSettings().timeSensitiveSetting
+    }
+
     /// Спрашивает разрешение, если ещё не спрашивали. true — уведомления разрешены.
     @discardableResult
     func requestIfNeeded() async -> Bool {
@@ -89,8 +94,10 @@ final class NotificationService {
         content.title = "Проверка уведомлений"
         content.body = "Всё работает: уведомления приходят."
         content.sound = .default
+        let id = "\(NotificationLevel.testPrefix)\(UUID().uuidString)"
+        content.interruptionLevel = NotificationLevel.for(id: id)
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: seconds, repeats: false)
-        let request = UNNotificationRequest(identifier: "test-\(UUID().uuidString)", content: content, trigger: trigger)
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
         try await center.add(request)
     }
 
@@ -99,6 +106,7 @@ final class NotificationService {
         content.title = p.title
         content.body = p.body
         content.sound = .default
+        content.interruptionLevel = NotificationLevel.for(id: p.id)
         if let itemID = p.itemID {
             content.categoryIdentifier = p.repeating ? NotificationActionID.repeatCategory : NotificationActionID.category
             content.userInfo = ["uid": itemID.uuidString]
