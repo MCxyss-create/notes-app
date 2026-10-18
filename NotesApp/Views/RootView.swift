@@ -38,6 +38,8 @@ struct RootView: View {
     @State private var page: MainPage = .feed
     /// Открытые папки: «Идеи» → «Проекты» → «VPN». Поле ввода кладёт записи в последнюю.
     @State private var folderPath: [FolderRoute] = []
+    /// Высота поля ввода: экраны стека оставляют под ним место, иначе низ списка уйдёт под поле.
+    @State private var composerHeight: CGFloat = 0
     @State private var showSettings = false
     @State private var showInbox = false
     /// Открытый поиск и с каким запросом. Через item, чтобы запрос не терялся при открытии.
@@ -72,6 +74,7 @@ struct RootView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .keyboardDismissable()
             }
+            .composerSpace(composerHeight)
             .navigationTitle("Мысли")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -94,6 +97,7 @@ struct RootView: View {
             }
             .navigationDestination(for: FolderRoute.self) { route in
                 FolderView(folderID: route.id, onEdit: { editing = $0 })
+                    .composerSpace(composerHeight)
             }
         }
         // Поле ввода — над всеми экранами стека: в открытой папке оно то же самое и кладёт записи туда.
@@ -107,6 +111,15 @@ struct RootView: View {
                     : demo?.screen == .command ? DemoData.commandReview() : nil,
                 demoListening: demo?.screen == .listen
             )
+            .background {
+                GeometryReader { geo in
+                    Color.clear
+                        .onAppear { composerHeight = geo.size.height }
+                        .onChange(of: geo.size.height) { _, height in
+                            composerHeight = height
+                        }
+                }
+            }
         }
         // Листы — у стека, а не у главного экрана: их открывают и из папок.
         .sheet(isPresented: $showSettings, onDismiss: reschedule) {
@@ -276,6 +289,17 @@ struct RootView: View {
     private func focusLater() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             DemoData.focusTopField()
+        }
+    }
+}
+
+private extension View {
+    /// Место под полем ввода: оно лежит над всем стеком, а экраны внутри стека его не видят.
+    func composerSpace(_ height: CGFloat) -> some View {
+        safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear
+                .frame(height: height)
+                .allowsHitTesting(false)
         }
     }
 }
