@@ -1,13 +1,13 @@
 import SwiftUI
 
-/// Проверка этапа 2: 8 контрольных фраз через DeepSeek.
+/// Проверка этапа 2: 8 контрольных фраз и 4 команды через DeepSeek.
 /// «Сейчас» для них — пятница 16.10.2026, 22:24 по Москве, как в таблице плана.
 struct AICheckView: View {
     @State private var results: [String: AIControlCheck.Outcome] = [:]
     @State private var running = false
     @State private var problem: String?
 
-    private var total: Int { AIControlCheck.cases.count }
+    private var total: Int { AIControlCheck.cases.count + AIControlCheck.commandCases.count }
     private var passed: Int { results.values.filter(\.passed).count }
 
     var body: some View {
@@ -32,7 +32,7 @@ struct AICheckView: View {
                 }
                 .disabled(running)
             } footer: {
-                Text("Фразы разбираются так, будто сейчас пятница, 16 октября 2026, 22:24 по Москве. Это 8 запросов к DeepSeek — меньше цента.")
+                Text("Фразы разбираются так, будто сейчас пятница, 16 октября 2026, 22:24 по Москве. Это 12 запросов к DeepSeek — меньше цента.")
             }
 
             Section("Фразы") {
@@ -53,6 +53,30 @@ struct AICheckView: View {
                     }
                     .padding(.vertical, 2)
                 }
+            }
+
+            Section {
+                ForEach(AIControlCheck.commandCases) { check in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .top, spacing: 8) {
+                            mark(results[check.phrase])
+                            Text(check.phrase)
+                        }
+                        Text("Надо: \(check.summary)")
+                            .font(.caption)
+                            .foregroundStyle(Color.secondary)
+                        if let outcome = results[check.phrase] {
+                            Text(outcome.details)
+                                .font(.caption)
+                                .foregroundStyle(outcome.passed ? Color.secondary : Color.red)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            } header: {
+                Text("Команды")
+            } footer: {
+                Text("Будто в приложении уже есть: «Подойти к учителю» (сб 09:00), «Позвонить маме» (сб 18:00), «Сдать пробник» (пн 13:30), заметка про размер ноги и идея про бота.")
             }
         }
         .listStyle(.insetGrouped)
@@ -83,6 +107,9 @@ struct AICheckView: View {
         running = true
         results = [:]
         for check in AIControlCheck.cases {
+            results[check.phrase] = await AIControlCheck.run(check, config: config)
+        }
+        for check in AIControlCheck.commandCases {
             results[check.phrase] = await AIControlCheck.run(check, config: config)
         }
         running = false

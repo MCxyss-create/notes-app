@@ -4,7 +4,9 @@ import Foundation
 enum AIPrompt {
     static let weekdays = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"]
 
-    static func system(now: Date, calendar: Calendar, defaultHour: Int, defaultMinute: Int, defaultBefore: Int) -> String {
+    /// known — записи, которые уже есть (уже отобранные `AIContext.forPrompt`): по ним ИИ понимает команды.
+    static func system(now: Date, calendar: Calendar, defaultHour: Int, defaultMinute: Int, defaultBefore: Int,
+                       known: [AIKnownItem] = []) -> String {
         let zone = calendar.timeZone
         let offset = offsetText(zone.secondsFromGMT(for: now))
         let defaultTime = String(format: "%02d:%02d", defaultHour, defaultMinute)
@@ -20,7 +22,7 @@ enum AIPrompt {
             return "- \(label)\(dayText(date, calendar)), \(weekday(date, calendar))"
         }.joined(separator: "\n")
 
-        return """
+        let base = """
         Ты разбираешь сообщения для приложения заметок и напоминаний. Ответ — только json-объект, без пояснений и без ```.
 
         Сейчас: \(today) \(time), \(weekday(now, calendar)). Часовой пояс: \(zone.identifier) (UTC\(offset)).
@@ -51,6 +53,31 @@ enum AIPrompt {
         Несколько дел или мыслей в одном сообщении → несколько записей, по одной на каждое.
         tags — 0–2 коротких слова строчными по смыслу: школа, ресейл, сервер.
         reply — одна короткая фраза по-русски о том, что записано.
+
+        Сообщение часто надиктовано голосом: без знаков препинания, со словами-паразитами (ну, короче, типа, как бы, э-э, вот, это самое) и ошибками распознавания. Слова-паразиты убирай, очевидные ошибки исправляй по смыслу, знаки расставляй. В title и body — чистый текст, а не сырая речь.
+        """
+        guard !known.isEmpty else { return base }
+        return base + "\n\n" + commands(known, now: now, calendar: calendar, offset: offset, defaultTime: defaultTime)
+    }
+
+    /// Список записей и правила команд: «перенеси», «готово», «удали», «переименуй», «что у меня…».
+    static func commands(_ known: [AIKnownItem], now: Date, calendar: Calendar, offset: String, defaultTime: String) -> String {
+        let list = known.map { AIContext.line($0, calendar: calendar) }.joined(separator: "\n")
+        let example = known.first?.ref ?? "a1b2c3"
+        let later = dayText(calendar.date(byAdding: .day, value: 3, to: now) ?? now, calendar)
+        return """
+        Записи, которые уже есть (id | вид | заголовок | срок | повтор):
+        \(list)
+
+        Сообщение может быть командой про запись из этого списка. Тогда новую запись НЕ создавай, а добавь изменение в "changes" (id — из списка):
+        - сделано («готово», «сделал», «маме позвонил») → {"op":"done","id":"\(example)"}
+        - перенести («перенеси на пятницу», «сдвинь на час», «отложи на завтра») → {"op":"move","id":"\(example)","due":"\(later)T\(defaultTime):00\(offset)","time_given":true}. Назван только день — оставь прежнее время записи. «Сдвинь на час» — от прежнего срока.
+        - удалить («удали», «убери», «больше не надо») → {"op":"delete","id":"\(example)"}
+        - переименовать или дописать → {"op":"edit","id":"\(example)","title":"…","body":"…"} — только то, что меняется.
+        Вопрос про записи («что у меня завтра?», «что просрочено?», «какие идеи?») → "found": id подходящих записей по порядку, items и changes пустые, reply — короткий ответ по-русски.
+        Не уверен, о какой записи речь, — ничего не меняй и спроси в reply.
+        В одном сообщении могут быть и новые записи, и команды — тогда заполни и items, и changes.
+        Ответ с командой: {"items":[],"changes":[{"op":"done","id":"\(example)"}],"reply":"Отметил как сделанное."}
         """
     }
 

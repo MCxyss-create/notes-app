@@ -40,17 +40,66 @@ enum AISettings {
 /// Разбор фразы через DeepSeek и сохранение того, что подтвердили.
 enum AIService {
     /// Спрашивает DeepSeek. Возвращает ответ модели (JSON-строку) — его можно хранить во «Входящих».
-    static func ask(_ phrase: String, said reference: Date) async throws -> String {
+    /// known — записи, которые уже есть: ИИ видит их заголовки и сроки и понимает команды.
+    static func ask(_ phrase: String, said reference: Date, known: [AIKnownItem] = []) async throws -> String {
         let config = try AISettings.config()
         let defaults = AISettings.parseDefaults
         let system = AIPrompt.system(now: reference, calendar: AISettings.calendar, defaultHour: defaults.hour,
-                                     defaultMinute: defaults.minute, defaultBefore: defaults.beforeMin)
+                                     defaultMinute: defaults.minute, defaultBefore: defaults.beforeMin,
+                                     known: AIContext.forPrompt(known))
         return try await DeepSeekClient.send(config: config, system: system, phrase: phrase)
     }
 
-    static func parse(_ content: String, said reference: Date) throws -> AIResult {
+    static func parse(_ content: String, said reference: Date, known: [AIKnownItem] = []) throws -> AIResult {
         try AIParser.parse(content, reference: reference, now: Date(), defaults: AISettings.parseDefaults,
-                           calendar: AISettings.calendar)
+                           calendar: AISettings.calendar, known: known)
+    }
+
+    /// Все несделанные записи — для команд. Сделанные ИИ не показываем.
+    @MainActor
+    static func knownItems(_ context: ModelContext) -> [AIKnownItem] {
+        let items = (try? context.fetch(FetchDescriptor<Item>())) ?? []
+        return items.filter { !$0.isDone }.map(AIKnownItem.init(item:))
+    }
+
+    /// Применяет отмеченные изменения. allowDelete=false — для Siri: удалять без карточки нельзя.
+    /// Возвращает то, что получилось применить.
+    @MainActor
+    @discardableResult
+    static func apply(_ changes: [AIChange], context: ModelContext, now: Date = Date(),
+                      allowDelete: Bool = true) -> [AIChange] {
+        var applied: [AIChange] = []
+        for change in changes where change.include {
+            let id = change.target.uid
+            var descriptor = FetchDescriptor<Item>(predicate: #Predicate<Item> { $0.uid == id })
+            descriptor.fetchLimit = 1
+            guard let item = try? context.fetch(descriptor).first else { continue }
+            switch change.op {
+            case .done:
+                ItemActions.complete(item, now: now)
+            case .move:
+                guard let due = change.due else { continue }
+                item.dueAt = due
+                item.timeGiven = change.timeGiven
+                item.isDone = false
+                item.doneAt = nil
+            case .delete:
+                guard allowDelete else { continue }
+                context.delete(item)
+            case .edit:
+                if let title = change.title, !title.isEmpty {
+                    item.title = title
+                }
+                if let body = change.body {
+                    item.body = body
+                }
+            }
+            applied.append(change)
+        }
+        if !applied.isEmpty {
+            try? context.save()
+        }
+        return applied
     }
 
     /// Сохраняет отмеченные карточки как записи.
@@ -125,14 +174,15 @@ final class InboxProcessor {
 
         let descriptor = FetchDescriptor<InboxEntry>(sortBy: [SortDescriptor(\.createdAt)])
         guard let entries = try? context.fetch(descriptor) else { return }
+        let known = AIService.knownItems(context)
         let jobs = entries
             .filter { $0.parsedJSON == nil && (retryFailed || $0.lastError == nil) }
             .map { (id: $0.uid, text: $0.text, said: $0.createdAt) }
 
         for job in jobs {
             do {
-                let content = try await AIService.ask(job.text, said: job.said)
-                _ = try AIService.parse(content, said: job.said)
+                let content = try await AIService.ask(job.text, said: job.said, known: known)
+                _ = try AIService.parse(content, said: job.said, known: known)
                 update(job.id) { entry in
                     entry.parsedJSON = content
                     entry.lastError = nil
@@ -157,5 +207,13 @@ final class InboxProcessor {
         guard let entry = try? context.fetch(descriptor).first else { return }
         change(entry)
         try? context.save()
+    }
+}
+
+extension AIKnownItem {
+    init(item: Item) {
+        self.init(uid: item.uid, kind: item.kind, title: item.title,
+                  due: item.kind == .reminder ? item.dueAt : nil, timeGiven: item.timeGiven,
+                  repeatRule: item.repeatRule, createdAt: item.createdAt)
     }
 }

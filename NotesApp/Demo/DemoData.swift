@@ -15,6 +15,8 @@ struct DemoConfig: Equatable {
         case review
         case inbox
         case search
+        case listen
+        case command
     }
 
     let screen: Screen
@@ -29,6 +31,8 @@ struct DemoConfig: Equatable {
 
 enum DemoData {
     static let editTitle = "Подойти к учителю"
+    /// Что «слышит» микрофон на снимке «Слушаю».
+    static let listeningText = "перенеси учителя на понедельник и маме позвонил"
 
     @MainActor
     static func seed(into context: ModelContext, screen: DemoConfig.Screen) {
@@ -83,6 +87,33 @@ enum DemoData {
                                           calendar: AISettings.calendar))
             ?? AIResult(reply: "Демо-ответ не разобрался", drafts: [])
         return AIReview(phrase: phrase, reply: result.reply, drafts: result.drafts)
+    }
+
+    /// Карточки команд для снимка: перенести, готово, удалить. Разбирает настоящий AIParser.
+    static func commandReview(now: Date = Date()) -> AIReview {
+        let calendar = AISettings.calendar
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) ?? now
+        var monday = tomorrow
+        while calendar.component(.weekday, from: monday) != 2 {
+            monday = calendar.date(byAdding: .day, value: 1, to: monday) ?? monday
+        }
+        let teacher = AIKnownItem(uid: UUID(), kind: .reminder, title: editTitle,
+                                  due: DateMath.atTime(tomorrow, hour: 9, minute: 0, calendar: calendar), timeGiven: false)
+        let mom = AIKnownItem(uid: UUID(), kind: .reminder, title: "Позвонить маме", due: now.addingTimeInterval(40 * 60))
+        let wifi = AIKnownItem(uid: UUID(), kind: .note, title: "Пароль от Wi-Fi на даче")
+        let phrase = "перенеси учителя на понедельник, маме позвонил и удали пароль от вайфая"
+        let json = """
+        {"items":[],"changes":[
+          {"op":"move","id":"\(teacher.ref)","due":"\(AIPrompt.dayText(monday, calendar))","time_given":false},
+          {"op":"done","id":"\(mom.ref)"},
+          {"op":"delete","id":"\(wifi.ref)"}
+        ],"reply":"Перенесу учителя, отмечу звонок и удалю пароль."}
+        """
+        let result = (try? AIParser.parse(json, reference: now, now: now,
+                                          defaults: ParseDefaults(hour: 9, minute: 0, beforeMin: 15),
+                                          calendar: calendar, known: [teacher, mom, wifi]))
+            ?? AIResult(reply: "Демо-ответ не разобрался", drafts: [])
+        return AIReview(phrase: phrase, reply: result.reply, drafts: result.drafts, changes: result.changes)
     }
 
     private static func inboxEntries(now: Date) -> [InboxEntry] {

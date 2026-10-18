@@ -36,6 +36,12 @@ struct AIDraft: Identifiable, Equatable {
 struct AIResult {
     var reply: String
     var drafts: [AIDraft]
+    /// Команды про уже сохранённые записи: «перенеси», «готово», «удали», «переименуй».
+    var changes: [AIChange] = []
+    /// Ответ на вопрос («что у меня завтра?»): о каких записях речь.
+    var found: [AIKnownItem] = []
+    /// Это был вопрос: записывать нечего, только показать ответ.
+    var answered = false
 }
 
 /// Проверяет ответ DeepSeek, не принимая его на веру: формат JSON, пустые заголовки,
@@ -45,18 +51,25 @@ enum AIParser {
 
     /// reference — когда фраза сказана (от него ИИ считал «завтра»), now — сейчас.
     /// Они различаются у фраз из «Входящих», разобранных позже.
-    static func parse(_ content: String, reference: Date, now: Date, defaults: ParseDefaults, calendar: Calendar) throws -> AIResult {
+    /// known — записи, которые уже есть: по ним разбираются команды и вопросы.
+    static func parse(_ content: String, reference: Date, now: Date, defaults: ParseDefaults, calendar: Calendar,
+                      known: [AIKnownItem] = []) throws -> AIResult {
         guard let root = jsonObject(content) else {
             throw AIError.badResponse("это не JSON")
         }
-        guard root["items"] != nil || root["reply"] != nil else {
+        guard root["items"] != nil || root["reply"] != nil || root["changes"] != nil || root["found"] != nil else {
             throw AIError.badResponse("нет списка записей")
         }
         let list = ((root["items"] as? [Any]) ?? []).compactMap { $0 as? [String: Any] }
         let drafts = list.compactMap {
             draft(from: $0, reference: reference, now: now, defaults: defaults, calendar: calendar)
         }
-        return AIResult(reply: text(root["reply"]) ?? "", drafts: drafts)
+        let changes = self.changes(root["changes"], known: known, reference: reference, now: now,
+                                   defaults: defaults, calendar: calendar)
+        let found = self.found(root["found"], known: known)
+        let answered = root["found"] is [Any] && drafts.isEmpty && changes.isEmpty
+        return AIResult(reply: text(root["reply"]) ?? "", drafts: drafts, changes: changes,
+                        found: found, answered: answered)
     }
 
     static func draft(from raw: [String: Any], reference: Date, now: Date, defaults: ParseDefaults, calendar: Calendar) -> AIDraft? {

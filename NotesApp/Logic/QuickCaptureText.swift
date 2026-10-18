@@ -25,6 +25,32 @@ enum QuickCaptureText {
         }
     }
 
+    /// После команды через Siri. Удалять без карточки нельзя — тогда ответ ИИ не годится
+    /// (он мог сказать «удалил»), говорим сами, что сделано.
+    static func changed(_ applied: [AIChange], skippedDelete: Bool, reply: String, now: Date = Date(),
+                        calendar: Calendar = .current) -> String {
+        let answer = reply.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !skippedDelete && !answer.isEmpty {
+            return answer
+        }
+        var parts: [String] = []
+        if applied.count == 1, let change = applied.first {
+            var line = "\(change.op.pastTitle): \(change.target.title)"
+            if change.op == .move, let due = change.due {
+                line += ", \(DateText.short(due, now: now, calendar: calendar).lowercasedFirst)"
+            }
+            parts.append(line + ".")
+        } else if applied.count > 1 {
+            parts.append("Сделал \(applied.count) \(RussianPlural.pick(applied.count, "изменение", "изменения", "изменений")).")
+        } else if !skippedDelete {
+            parts.append("Ничего не поменял.")
+        }
+        if skippedDelete {
+            parts.append("Удалить можно только в приложении.")
+        }
+        return parts.joined(separator: " ")
+    }
+
     /// «Сегодня 2 дела: 09:00 Подойти к учителю, 13:30 Сдать пробник. Просрочено: 1.»
     static func today(_ entries: [SummaryPlanner.Entry], overdue: Int, calendar: Calendar = .current) -> String {
         var parts: [String] = []

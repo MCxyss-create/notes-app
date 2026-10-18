@@ -6,16 +6,20 @@ struct AIReview: Identifiable {
     let phrase: String
     let reply: String
     var drafts: [AIDraft]
+    var changes: [AIChange] = []
+    var found: [AIKnownItem] = []
+    var answered = false
 }
 
 /// «Вот что я понял»: карточки перед сохранением. Несколько дел — несколько карточек, одна кнопка.
+/// Команды («перенеси», «готово», «удали») — тоже карточками: применяются только по кнопке.
 struct AIReviewView: View {
-    let onSave: ([AIDraft]) -> Void
+    let onSave: ([AIDraft], [AIChange]) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var review: AIReview
 
-    init(review: AIReview, onSave: @escaping ([AIDraft]) -> Void) {
+    init(review: AIReview, onSave: @escaping ([AIDraft], [AIChange]) -> Void) {
         _review = State(initialValue: review)
         self.onSave = onSave
     }
@@ -24,8 +28,25 @@ struct AIReviewView: View {
         review.drafts.filter(\.include)
     }
 
+    private var chosenChanges: [AIChange] {
+        review.changes.filter(\.include)
+    }
+
+    private var hasActions: Bool {
+        !review.drafts.isEmpty || !review.changes.isEmpty
+    }
+
+    /// Галочки «сохранить / не сохранять» нужны, только когда карточек больше одной.
+    private var selectable: Bool {
+        review.drafts.count + review.changes.count > 1
+    }
+
     private var saveTitle: String {
-        chosen.count > 1 ? "Сохранить все (\(chosen.count))" : "Сохранить"
+        let total = chosen.count + chosenChanges.count
+        if chosen.isEmpty && !chosenChanges.isEmpty {
+            return total > 1 ? "Применить (\(total))" : "Применить"
+        }
+        return total > 1 ? "Сохранить все (\(total))" : "Сохранить"
     }
 
     var body: some View {
@@ -44,17 +65,37 @@ struct AIReviewView: View {
                     .padding(.vertical, 2)
                 }
 
+                if !review.found.isEmpty {
+                    Section("Нашёл") {
+                        ForEach(review.found) { item in
+                            FoundRow(item: item)
+                        }
+                    }
+                }
+
+                if !review.changes.isEmpty {
+                    Section("Изменить") {
+                        ForEach($review.changes) { $change in
+                            ChangeRow(change: change, selectable: selectable) {
+                                change.include.toggle()
+                            }
+                        }
+                    }
+                }
+
                 if review.drafts.isEmpty {
-                    Section {
-                        Text("Не понял, что тут записать.")
-                        Button("Сохранить как заметку") {
-                            finish([AIDraft.note(from: review.phrase)])
+                    if review.changes.isEmpty && !review.answered {
+                        Section {
+                            Text("Не понял, что тут записать.")
+                            Button("Сохранить как заметку") {
+                                finish([AIDraft.note(from: review.phrase)], [])
+                            }
                         }
                     }
                 } else {
                     ForEach($review.drafts) { $draft in
                         Section {
-                            DraftCard(draft: draft, selectable: review.drafts.count > 1) {
+                            DraftCard(draft: draft, selectable: selectable) {
                                 draft.include.toggle()
                             }
                             NavigationLink {
@@ -75,17 +116,17 @@ struct AIReviewView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                if !review.drafts.isEmpty {
+                if hasActions || review.answered {
                     Button {
-                        finish(chosen)
+                        finish(chosen, chosenChanges)
                     } label: {
-                        Text(saveTitle)
+                        Text(hasActions ? saveTitle : "Понятно")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 6)
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(chosen.isEmpty)
+                    .disabled(hasActions && chosen.isEmpty && chosenChanges.isEmpty)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(.bar)
@@ -94,9 +135,102 @@ struct AIReviewView: View {
         }
     }
 
-    private func finish(_ drafts: [AIDraft]) {
-        onSave(drafts)
+    private func finish(_ drafts: [AIDraft], _ changes: [AIChange]) {
+        onSave(drafts, changes)
         dismiss()
+    }
+}
+
+/// Карточка команды: что сделать с какой записью. Удаление — красным.
+struct ChangeRow: View {
+    let change: AIChange
+    let selectable: Bool
+    var onToggle: () -> Void = {}
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            if selectable {
+                Button(action: onToggle) {
+                    Image(systemName: change.include ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
+                        .foregroundStyle(change.include ? Color.accentColor : Color.secondary)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(change.include ? "Не применять" : "Применить")
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Label(change.op.title, systemImage: change.op.symbol)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(change.op == .delete ? Color.red : Color.accentColor)
+                Text(change.target.title)
+                    .font(.headline)
+                    .strikethrough(change.op == .delete)
+
+                switch change.op {
+                case .move:
+                    if let due = change.due {
+                        Label("\(change.target.due.map { DateText.short($0) } ?? "Без срока") → \(DateText.short(due))",
+                              systemImage: "clock")
+                            .font(.subheadline)
+                    }
+                case .edit:
+                    if let title = change.title {
+                        Text("→ \(title)")
+                            .font(.subheadline)
+                    }
+                    if let details = change.body {
+                        Text(details)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.secondary)
+                    }
+                case .done:
+                    if change.target.repeatRule != nil {
+                        Text("Повторяется — перейдёт на следующий раз")
+                            .font(.caption)
+                            .foregroundStyle(Color.secondary)
+                    }
+                case .delete:
+                    EmptyView()
+                }
+
+                if let warning = change.warning {
+                    Label(warning, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(Color.orange)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 2)
+        .opacity(change.include ? 1 : 0.45)
+    }
+}
+
+/// Запись из ответа на вопрос: вид, заголовок, срок (просроченный — красным).
+struct FoundRow: View {
+    let item: AIKnownItem
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: item.kind.symbol)
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title)
+                if let due = item.due {
+                    Text(dueText(due))
+                        .font(.caption)
+                        .foregroundStyle(due < Date() ? Color.red : Color.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func dueText(_ due: Date) -> String {
+        guard let rule = item.repeatRule else { return DateText.short(due) }
+        return "\(DateText.short(due)) · \(rule.title.lowercased())"
     }
 }
 

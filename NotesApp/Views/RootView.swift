@@ -40,6 +40,9 @@ struct RootView: View {
     /// Открытый поиск и с каким запросом. Через item, чтобы запрос не терялся при открытии.
     @State private var search: SearchRequest?
     @State private var editing: Item?
+    /// Приложение уходило в фон — при возвращении снова слушать.
+    @State private var wasAway = false
+    @AppStorage(SettingsKeys.listenOnOpen) private var listenOnOpen = true
 
     var body: some View {
         NavigationStack {
@@ -70,7 +73,9 @@ struct RootView: View {
                     defaultKind: page.kind,
                     autoFocus: demo == nil,
                     demoShowDue: demo?.screen == .due,
-                    demoReview: demo?.screen == .review ? DemoData.review() : nil
+                    demoReview: demo?.screen == .review ? DemoData.review()
+                        : demo?.screen == .command ? DemoData.commandReview() : nil,
+                    demoListening: demo?.screen == .listen
                 )
             }
             .navigationTitle("Мысли")
@@ -113,6 +118,12 @@ struct RootView: View {
             if phase == .active {
                 reschedule()
                 InboxProcessor.shared.kick()
+                if wasAway {
+                    wasAway = false
+                    listenAgain()
+                }
+            } else if phase == .background {
+                wasAway = true
             }
         }
         .task {
@@ -205,6 +216,14 @@ struct RootView: View {
         reschedule()
     }
 
+    /// Вернулся в приложение — микрофон снова слушает, если поверх ничего не открыто.
+    private func listenAgain() {
+        guard listenOnOpen, demo == nil, !AppEnvironment.isRunningTests,
+              !showSettings, !showInbox, search == nil, editing == nil,
+              QuickLaunch.shared.pending == nil else { return }
+        QuickLaunch.shared.request(.listen)
+    }
+
     private func reschedule() {
         guard demo == nil, !AppEnvironment.isRunningTests else { return }
         NotificationScheduler.rescheduleAll(items: allItems)
@@ -212,7 +231,7 @@ struct RootView: View {
 
     private func applyDemo(_ demo: DemoConfig) {
         switch demo.screen {
-        case .feed, .due, .empty, .review:
+        case .feed, .due, .empty, .review, .listen, .command:
             break
         case .inbox:
             showInbox = true

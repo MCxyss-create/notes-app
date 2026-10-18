@@ -167,6 +167,8 @@ jobs:
           shot review 9-ii-kartochki
           shot inbox 9-vhodyaschie
           shot search 10-poisk
+          shot listen 11-slushayu
+          shot command 12-komanda
           xcrun simctl ui "$SIM" appearance dark || true
           shot feed 8-lenta-temnaya
 

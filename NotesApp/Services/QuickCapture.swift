@@ -9,6 +9,8 @@ final class QuickLaunch: ObservableObject {
     enum Action: Equatable {
         case dictate
         case type
+        /// Приложение снова открыли — слушать, если поле пустое и ничего не открыто.
+        case listen
     }
 
     @Published var pending: Action?
@@ -45,10 +47,19 @@ enum QuickCapture {
         }
 
         do {
-            let content = try await askWithTimeout(phrase, said: now)
-            let result = try AIService.parse(content, said: now)
+            let known = AIService.knownItems(context)
+            let content = try await askWithTimeout(phrase, said: now, known: known)
+            let result = try AIService.parse(content, said: now, known: known)
+            // Команда или вопрос: «маме позвонил», «что у меня завтра?» — заметку не создаём.
+            if result.drafts.isEmpty && (!result.changes.isEmpty || result.answered) {
+                let applied = AIService.apply(result.changes, context: context, now: now, allowDelete: false)
+                await rescheduleAll(context)
+                let skippedDelete = result.changes.contains { $0.op == .delete }
+                return QuickCaptureText.changed(applied, skippedDelete: skippedDelete, reply: result.reply, now: now)
+            }
             let drafts = result.drafts.isEmpty ? [AIDraft.note(from: phrase)] : result.drafts
             AIService.save(drafts, phrase: phrase, context: context)
+            AIService.apply(result.changes, context: context, now: now, allowDelete: false)
             await rescheduleAll(context)
             return QuickCaptureText.saved(drafts, reply: result.reply, now: now)
         } catch {
@@ -75,10 +86,10 @@ enum QuickCapture {
     }
 
     /// Siri долго не ждёт: если DeepSeek не ответил за 20 секунд — во «Входящие».
-    private static func askWithTimeout(_ phrase: String, said: Date) async throws -> String {
+    private static func askWithTimeout(_ phrase: String, said: Date, known: [AIKnownItem]) async throws -> String {
         try await withThrowingTaskGroup(of: String.self) { group in
             group.addTask {
-                try await AIService.ask(phrase, said: said)
+                try await AIService.ask(phrase, said: said, known: known)
             }
             group.addTask {
                 try await Task.sleep(nanoseconds: 20_000_000_000)

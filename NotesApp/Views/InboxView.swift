@@ -51,8 +51,9 @@ struct InboxView: View {
                 }
             }
             .sheet(item: $review) { r in
-                AIReviewView(review: r) { drafts in
+                AIReviewView(review: r) { drafts, changes in
                     AIService.save(drafts, phrase: r.phrase, context: context)
+                    AIService.apply(changes, context: context)
                     if let id = reviewEntry, let entry = entries.first(where: { $0.uid == id }) {
                         context.delete(entry)
                         try? context.save()
@@ -142,12 +143,15 @@ struct InboxView: View {
     }
 
     private func open(_ entry: InboxEntry) {
-        guard let json = entry.parsedJSON, let result = try? AIService.parse(json, said: entry.createdAt) else {
+        let known = AIService.knownItems(context)
+        guard let json = entry.parsedJSON,
+              let result = try? AIService.parse(json, said: entry.createdAt, known: known) else {
             Task { await parseAll() }
             return
         }
         reviewEntry = entry.uid
-        review = AIReview(phrase: entry.text, reply: result.reply, drafts: result.drafts)
+        review = AIReview(phrase: entry.text, reply: result.reply, drafts: result.drafts,
+                          changes: result.changes, found: result.found, answered: result.answered)
     }
 
     private func parseAll() async {

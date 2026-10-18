@@ -61,6 +61,125 @@ enum AIControlCheck {
              summary: "Напоминание с повтором по вторникам"),
     ]
 
+    // MARK: - 4 контрольные команды про уже сохранённые записи
+
+    struct ExpectedChange {
+        let op: AIChange.Op
+        let ref: String
+        /// «2026-10-19 09:00» по Москве — для «перенеси».
+        var due: String? = nil
+    }
+
+    struct CommandCase: Identifiable {
+        let phrase: String
+        var changes: [ExpectedChange] = []
+        /// id записей в ответе на вопрос; nil — это не вопрос.
+        var found: [String]? = nil
+        let summary: String
+        var id: String { phrase }
+    }
+
+    /// Какие записи «уже есть» для команд.
+    static let commandItems: [AIKnownItem] = [
+        AIKnownItem(uid: uid("A1B2C3D4-0000-4000-8000-000000000001"), kind: .reminder, title: "Подойти к учителю",
+                    due: date("2026-10-17 09:00"), timeGiven: false),
+        AIKnownItem(uid: uid("D4E5F6A7-0000-4000-8000-000000000002"), kind: .reminder, title: "Позвонить маме",
+                    due: date("2026-10-17 18:00")),
+        AIKnownItem(uid: uid("0C9D8E7F-0000-4000-8000-000000000003"), kind: .reminder, title: "Сдать пробник",
+                    due: date("2026-10-19 13:30")),
+        AIKnownItem(uid: uid("7F6E5D4C-0000-4000-8000-000000000004"), kind: .note, title: "Размер ноги: Nike 43, Adidas 42.5"),
+        AIKnownItem(uid: uid("B7C8D9E0-0000-4000-8000-000000000005"), kind: .idea, title: "Бот для прибыли с ресейла"),
+    ]
+
+    static let commandCases: [CommandCase] = [
+        CommandCase(phrase: "перенеси учителя на понедельник",
+                    changes: [ExpectedChange(op: .move, ref: "a1b2c3", due: "2026-10-19 09:00")],
+                    summary: "Перенести «Подойти к учителю» на пн 09:00"),
+        CommandCase(phrase: "маме позвонил",
+                    changes: [ExpectedChange(op: .done, ref: "d4e5f6")],
+                    summary: "Готово: «Позвонить маме»"),
+        CommandCase(phrase: "удали заметку про размер ноги",
+                    changes: [ExpectedChange(op: .delete, ref: "7f6e5d")],
+                    summary: "Удалить заметку «Размер ноги»"),
+        CommandCase(phrase: "что у меня завтра?",
+                    found: ["a1b2c3", "d4e5f6"],
+                    summary: "Нашёл 2 дела на завтра, ничего не записал"),
+    ]
+
+    static func run(_ check: CommandCase, config: AIConfig) async -> Outcome {
+        let system = AIPrompt.system(now: now, calendar: calendar, defaultHour: defaults.hour,
+                                     defaultMinute: defaults.minute, defaultBefore: defaults.beforeMin,
+                                     known: commandItems)
+        do {
+            let content = try await DeepSeekClient.send(config: config, system: system, phrase: check.phrase)
+            let result = try AIParser.parse(content, reference: now, now: now, defaults: defaults,
+                                            calendar: calendar, known: commandItems)
+            let issues = problems(result, expected: check)
+            let got = describe(result)
+            if issues.isEmpty {
+                return Outcome(passed: true, details: got)
+            }
+            return Outcome(passed: false, details: "Получилось: \(got). " + issues.joined(separator: "; "))
+        } catch {
+            return Outcome(passed: false, details: AIError.from(error).message)
+        }
+    }
+
+    /// Команда не должна создавать новых записей; изменения и найденное — как ожидалось.
+    static func problems(_ result: AIResult, expected: CommandCase) -> [String] {
+        var issues: [String] = []
+        if !result.drafts.isEmpty {
+            issues.append("создал новые записи: \(result.drafts.count)")
+        }
+        if result.changes.count != expected.changes.count {
+            issues.append("изменений \(result.changes.count), а надо \(expected.changes.count)")
+        }
+        for item in expected.changes {
+            let ok = result.changes.contains { change in
+                guard change.op == item.op, change.target.ref == item.ref else { return false }
+                guard let due = item.due else { return true }
+                return change.due.map(text) == due
+            }
+            if !ok {
+                issues.append("нет: \(item.op.title.lowercased()) \(item.ref)\(item.due.map { " → \($0)" } ?? "")")
+            }
+        }
+        if let found = expected.found, Set(result.found.map(\.ref)) != Set(found) {
+            issues.append("нашёл не те записи")
+        }
+        return issues
+    }
+
+    /// «Перенести Подойти к учителю → пн 19.10 09:00; нашёл: Позвонить маме».
+    static func describe(_ result: AIResult) -> String {
+        var parts = result.changes.map { change -> String in
+            var line = "\(change.op.title) «\(change.target.title)»"
+            if let due = change.due {
+                line += " → " + dayTime(due)
+            }
+            return line
+        }
+        if !result.found.isEmpty {
+            parts.append("нашёл: " + result.found.map(\.title).joined(separator: ", "))
+        }
+        parts += result.drafts.map { "новая: " + describe($0) }
+        return parts.isEmpty ? "ничего" : parts.joined(separator: "; ")
+    }
+
+    /// «сб 17.10 09:00».
+    static func dayTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "EE d.MM HH:mm"
+        return formatter.string(from: date)
+    }
+
+    private static func uid(_ text: String) -> UUID {
+        UUID(uuidString: text) ?? UUID()
+    }
+
     /// Спрашивает DeepSeek и сравнивает ответ с ожидаемым.
     static func run(_ check: Case, config: AIConfig) async -> Outcome {
         let system = AIPrompt.system(now: now, calendar: calendar, defaultHour: defaults.hour,

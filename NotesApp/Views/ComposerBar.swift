@@ -8,10 +8,14 @@ struct ComposerBar: View {
     let autoFocus: Bool
     var demoShowDue: Bool = false
     var demoReview: AIReview? = nil
+    var demoListening: Bool = false
 
     @Environment(\.modelContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage(SettingsKeys.defaultBeforeMin) private var defaultBefore = 15
     @AppStorage(SettingsKeys.aiEnabled) private var aiOn = true
+    @AppStorage(SettingsKeys.listenOnOpen) private var listenOnOpen = true
+    @AppStorage(SettingsKeys.voiceAutoSend) private var voiceAutoSend = true
     @State private var text = ""
     @State private var kind: ItemKind = .reminder
     @State private var due: Date?
@@ -43,7 +47,9 @@ struct ComposerBar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if aiOn {
+            if listening {
+                listeningRow
+            } else if aiOn {
                 aiStatus
             } else {
                 HStack(spacing: 6) {
@@ -75,9 +81,9 @@ struct ComposerBar: View {
                     .background(Color(.secondarySystemBackground),
                                 in: RoundedRectangle(cornerRadius: 20, style: .continuous))
 
-                if dictation.isRecording {
+                if listening {
                     Button {
-                        dictation.stop()
+                        stopListening()
                     } label: {
                         Image(systemName: "stop.circle.fill")
                             .font(.system(size: 34))
@@ -116,13 +122,34 @@ struct ComposerBar: View {
             } else if demoShowDue {
                 kind = .reminder
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { showDue = true }
+            } else if demoListening {
+                text = DemoData.listeningText
             } else if autoFocus {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { focused = true }
+                if listenOnOpen {
+                    // Как VoiceOS: открыл — уже слушает. Клавиатура — тапом по полю.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { listenIfIdle() }
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { focused = true }
+                }
             }
             handleLaunch()
         }
         .onChange(of: launch.pending) {
             handleLaunch()
+        }
+        .onChange(of: dictation.pauseCount) {
+            sendAfterPause()
+        }
+        .onChange(of: focused) { _, isFocused in
+            // Тап по полю во время записи — дальше руками.
+            if isFocused, dictation.isRecording {
+                dictation.stop()
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background, dictation.isRecording {
+                dictation.stop()
+            }
         }
         .onChange(of: defaultKind) { _, newKind in
             kind = newKind
@@ -142,12 +169,32 @@ struct ComposerBar: View {
             DueDateSheet(selection: $due, timeGiven: $timeGiven)
         }
         .sheet(item: $review, onDismiss: reviewClosed) { r in
-            AIReviewView(review: r) { drafts in
+            AIReviewView(review: r) { drafts, changes in
                 AIService.save(drafts, phrase: r.phrase, context: context)
+                AIService.apply(changes, context: context)
                 reviewSaved = true
                 savedCount += 1
             }
         }
+    }
+
+    private var listening: Bool {
+        dictation.isRecording || demoListening
+    }
+
+    /// Пока слушает: полоски громкости, подсказка и «Отмена».
+    private var listeningRow: some View {
+        HStack(spacing: 8) {
+            VoiceLevelView(level: demoListening ? 0.6 : dictation.level)
+            Text(voiceAutoSend ? (aiOn ? "Слушаю… Замолчишь — разберу сам" : "Слушаю… Замолчишь — остановлюсь") : "Слушаю…")
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            Button("Отмена", action: cancelListening)
+                .font(.footnote.weight(.semibold))
+        }
+        .font(.footnote)
+        .foregroundStyle(Color.secondary)
+        .padding(.horizontal, 4)
     }
 
     /// Строка над полем, когда включён ИИ: подсказка, «разбираю…» или что пошло не так.
@@ -233,15 +280,48 @@ struct ComposerBar: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { startDictation() }
         case .type:
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { focused = true }
+        case .listen:
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { listenIfIdle() }
         }
     }
 
-    /// Микрофон: пока говоришь, текст появляется в поле; потом можно поправить и отправить.
+    /// Микрофон: пока говоришь, текст появляется в поле. Замолчал — уходит сам (если включено),
+    /// иначе можно поправить и отправить.
     private func startDictation() {
         textBeforeDictation = trimmed
         notice = nil
         focused = false
-        Task { await dictation.start() }
+        let autoSend = voiceAutoSend
+        Task { await dictation.start(stopsOnPause: autoSend) }
+    }
+
+    /// Слушать само (при открытии) — только если поле пустое и ничего не открыто поверх.
+    private func listenIfIdle() {
+        guard review == nil, !showDue, !working, !dictation.isRecording, trimmed.isEmpty else { return }
+        startDictation()
+    }
+
+    /// Кнопка «стоп»: с автоотправкой — сразу разобрать сказанное, без неё — оставить в поле.
+    private func stopListening() {
+        guard !demoListening else { return }
+        dictation.stop(send: voiceAutoSend)
+    }
+
+    private func cancelListening() {
+        guard !demoListening else { return }
+        dictation.cancel()
+        text = textBeforeDictation
+    }
+
+    /// Человек замолчал: фраза — в ИИ. Без ✨ текст остаётся в поле, выбрать вид и сохранить.
+    private func sendAfterPause() {
+        let spoken = dictation.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !spoken.isEmpty else { return }
+        let phrase = textBeforeDictation.isEmpty ? spoken : "\(textBeforeDictation) \(spoken)"
+        text = phrase
+        if aiOn {
+            askAI(phrase)
+        }
     }
 
     private func send() {
@@ -249,28 +329,30 @@ struct ComposerBar: View {
             dictation.stop()
         }
         if aiOn {
-            askAI()
+            askAI(trimmed)
         } else {
             save()
         }
     }
 
-    /// Фраза уходит в DeepSeek. Не вышло — она не теряется, а ложится во «Входящие».
-    private func askAI() {
-        let phrase = trimmed
+    /// Фраза уходит в DeepSeek вместе со списком записей — так ИИ понимает и команды
+    /// («перенеси», «готово», «удали», «что завтра»). Не вышло — фраза ложится во «Входящие».
+    private func askAI(_ phrase: String) {
         guard !phrase.isEmpty, !working else { return }
         let said = Date()
+        let known = AIService.knownItems(context)
         text = ""
         notice = nil
         working = true
         Task {
             do {
-                let content = try await AIService.ask(phrase, said: said)
-                let result = try AIService.parse(content, said: said)
+                let content = try await AIService.ask(phrase, said: said, known: known)
+                let result = try AIService.parse(content, said: said, known: known)
                 working = false
                 reviewPhrase = phrase
                 reviewSaved = false
-                review = AIReview(phrase: phrase, reply: result.reply, drafts: result.drafts)
+                review = AIReview(phrase: phrase, reply: result.reply, drafts: result.drafts,
+                                  changes: result.changes, found: result.found, answered: result.answered)
                 // Сеть есть — заодно разберём, что ждёт во «Входящих».
                 InboxProcessor.shared.kick()
             } catch {

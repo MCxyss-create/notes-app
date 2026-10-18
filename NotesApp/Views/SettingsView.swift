@@ -17,6 +17,8 @@ struct SettingsView: View {
     @AppStorage(SettingsKeys.defaultBeforeMin) private var defaultBefore = 15
     @AppStorage(SettingsKeys.aiEndpoint) private var aiEndpoint = ""
     @AppStorage(SettingsKeys.aiModel) private var aiModel = ""
+    @AppStorage(SettingsKeys.listenOnOpen) private var listenOnOpen = true
+    @AppStorage(SettingsKeys.voiceAutoSend) private var voiceAutoSend = true
     @AppStorage(SettingsKeys.morningSummaryOn) private var morningOn = SummarySettings.standard.morningOn
     @AppStorage(SettingsKeys.morningSummaryMinutes) private var morningMinutes = SummarySettings.standard.morningMinutes
     @AppStorage(SettingsKeys.eveningSummaryOn) private var eveningOn = SummarySettings.standard.eveningOn
@@ -32,6 +34,8 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 aiSection
+
+                voiceSection
 
                 notificationsSection
 
@@ -122,13 +126,25 @@ struct SettingsView: View {
                     .autocorrectionDisabled()
             }
 
-            NavigationLink("Проверить разбор: 8 фраз") {
+            NavigationLink("Проверить разбор: 8 фраз и 4 команды") {
                 AICheckView()
             }
         } header: {
             Text("ИИ DeepSeek")
         } footer: {
-            Text("Ключ хранится в связке ключей iPhone. Фраза уходит в DeepSeek, только когда у поля ввода включена ✨. Пустые адрес и модель — значения по умолчанию.")
+            Text("Ключ хранится в связке ключей iPhone. Фраза уходит в DeepSeek, только когда у поля ввода включена ✨. Вместе с ней уходят заголовки и сроки несделанных записей — так ИИ понимает команды. Пустые адрес и модель — значения по умолчанию.")
+        }
+    }
+
+    /// Как VoiceOS: открыл — слушает, замолчал — ИИ разбирает сам.
+    private var voiceSection: some View {
+        Section {
+            Toggle("Слушать сразу при открытии", isOn: $listenOnOpen)
+            Toggle("Замолчал — отправить самому", isOn: $voiceAutoSend)
+        } header: {
+            Text("Голос")
+        } footer: {
+            Text("Открыл «Мысли» — микрофон уже слушает, пока поле пустое. Замолчишь на пару секунд — фраза уйдёт в ИИ, он покажет карточку. Команды: «перенеси учителя на пятницу», «маме позвонил», «удали заметку про Wi-Fi», «что у меня завтра?». Пока идёт запись, музыка может стихнуть.")
         }
     }
 

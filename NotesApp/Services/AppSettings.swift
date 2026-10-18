@@ -14,6 +14,10 @@ enum SettingsKeys {
     static let morningSummaryMinutes = "morningSummaryMinutes"
     static let eveningSummaryOn = "eveningSummaryOn"
     static let eveningSummaryMinutes = "eveningSummaryMinutes"
+    /// Голос: открыл приложение — микрофон уже слушает.
+    static let listenOnOpen = "listenOnOpen"
+    /// Голос: замолчал — фраза уходит сама.
+    static let voiceAutoSend = "voiceAutoSend"
 }
 
 extension SummarySettings {
