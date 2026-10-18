@@ -6,16 +6,19 @@ struct SearchFields {
     let body: String?
     let rawInput: String?
     let tags: [String]
+    /// «Проекты / VPN»: поиск находит запись и по имени папки.
+    var folderPath: String? = nil
 }
 
 /// Поиск: все слова запроса должны найтись. Слово ищется в заголовке, подробностях,
-/// исходной фразе и тегах; «#тег» — только в тегах. «ё» и «е» не различаются.
+/// исходной фразе, тегах и имени папки; «#тег» — только в тегах. «ё» и «е» не различаются.
 enum SearchMatcher {
     static func matches(_ fields: SearchFields, query: String) -> Bool {
         let tokens = normalize(query).split(whereSeparator: \.isWhitespace).map(String.init)
         guard !tokens.isEmpty else { return false }
 
-        let text = normalize([fields.title, fields.body ?? "", fields.rawInput ?? ""].joined(separator: " "))
+        let text = normalize([fields.title, fields.body ?? "", fields.rawInput ?? "", fields.folderPath ?? ""]
+            .joined(separator: " "))
         let tags = fields.tags.map(normalize)
 
         for token in tokens {

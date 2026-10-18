@@ -7,7 +7,9 @@ struct AICheckView: View {
     @State private var running = false
     @State private var problem: String?
 
-    private var total: Int { AIControlCheck.cases.count + AIControlCheck.commandCases.count }
+    private var total: Int {
+        AIControlCheck.cases.count + AIControlCheck.commandCases.count + AIControlCheck.folderCases.count
+    }
     private var passed: Int { results.values.filter(\.passed).count }
 
     var body: some View {
@@ -32,7 +34,7 @@ struct AICheckView: View {
                 }
                 .disabled(running)
             } footer: {
-                Text("Фразы разбираются так, будто сейчас пятница, 16 октября 2026, 22:24 по Москве. Это 12 запросов к DeepSeek — меньше цента.")
+                Text("Фразы разбираются так, будто сейчас пятница, 16 октября 2026, 22:24 по Москве. Это \(total) запросов к DeepSeek — меньше цента.")
             }
 
             Section("Фразы") {
@@ -78,6 +80,30 @@ struct AICheckView: View {
             } footer: {
                 Text("Будто в приложении уже есть: «Подойти к учителю» (сб 09:00), «Позвонить маме» (сб 18:00), «Сдать пробник» (пн 13:30), заметка про размер ноги и идея про бота.")
             }
+
+            Section {
+                ForEach(AIControlCheck.folderCases) { check in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .top, spacing: 8) {
+                            mark(results[check.phrase])
+                            Text(check.phrase)
+                        }
+                        Text("Надо: \(check.summary)")
+                            .font(.caption)
+                            .foregroundStyle(Color.secondary)
+                        if let outcome = results[check.phrase] {
+                            Text(outcome.details)
+                                .font(.caption)
+                                .foregroundStyle(outcome.passed ? Color.secondary : Color.red)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            } header: {
+                Text("Папки")
+            } footer: {
+                Text("Будто уже есть папки «Проекты / VPN», «Шопинг», «Школа» и те же записи, что для команд.")
+            }
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Проверка разбора")
@@ -110,6 +136,9 @@ struct AICheckView: View {
             results[check.phrase] = await AIControlCheck.run(check, config: config)
         }
         for check in AIControlCheck.commandCases {
+            results[check.phrase] = await AIControlCheck.run(check, config: config)
+        }
+        for check in AIControlCheck.folderCases {
             results[check.phrase] = await AIControlCheck.run(check, config: config)
         }
         running = false

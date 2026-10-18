@@ -106,6 +106,87 @@ enum AIControlCheck {
                     summary: "Нашёл 2 дела на завтра, ничего не записал"),
     ]
 
+    // MARK: - 2 контрольные фразы про папки
+
+    struct FolderCase: Identifiable {
+        let phrase: String
+        /// Новая запись этого вида — в папку folderRef.
+        var draftKind: ItemKind? = nil
+        /// Изменение «В папку»: какая запись (ref) и куда.
+        var changeRef: String? = nil
+        let folderRef: String
+        let summary: String
+        var id: String { phrase }
+    }
+
+    /// Какие папки «уже есть»: Проекты → VPN, Шопинг, Школа.
+    static let folderItems: [AIKnownFolder] = [
+        AIKnownFolder(uid: uid("F1A2B3C4-0000-4000-8000-000000000011"), name: "Проекты"),
+        AIKnownFolder(uid: uid("E2B3C4D5-0000-4000-8000-000000000012"), name: "VPN", path: "Проекты / VPN"),
+        AIKnownFolder(uid: uid("C3D4E5F6-0000-4000-8000-000000000013"), name: "Шопинг"),
+        AIKnownFolder(uid: uid("A4B5C6D7-0000-4000-8000-000000000014"), name: "Школа"),
+    ]
+
+    static let folderCases: [FolderCase] = [
+        FolderCase(phrase: "идея для VPN: реклама у блогеров",
+                   draftKind: .idea, folderRef: "e2b3c4",
+                   summary: "Идея в папке «Проекты / VPN»"),
+        FolderCase(phrase: "перенеси заметку про размер ноги в папку Шопинг",
+                   changeRef: "7f6e5d", folderRef: "c3d4e5",
+                   summary: "Заметка «Размер ноги» — в папку «Шопинг»"),
+    ]
+
+    static func run(_ check: FolderCase, config: AIConfig) async -> Outcome {
+        let system = AIPrompt.system(now: now, calendar: calendar, defaultHour: defaults.hour,
+                                     defaultMinute: defaults.minute, defaultBefore: defaults.beforeMin,
+                                     known: commandItems, folders: folderItems)
+        do {
+            let content = try await DeepSeekClient.send(config: config, system: system, phrase: check.phrase)
+            let result = try AIParser.parse(content, reference: now, now: now, defaults: defaults,
+                                            calendar: calendar, known: commandItems, folders: folderItems)
+            let issues = problems(result, expected: check)
+            let got = describeFolders(result)
+            if issues.isEmpty {
+                return Outcome(passed: true, details: got)
+            }
+            return Outcome(passed: false, details: "Получилось: \(got). " + issues.joined(separator: "; "))
+        } catch {
+            return Outcome(passed: false, details: AIError.from(error).message)
+        }
+    }
+
+    /// Новая запись — нужного вида и в нужной папке; команда — «В папку» нужной записи в нужную папку.
+    static func problems(_ result: AIResult, expected: FolderCase) -> [String] {
+        let folder = folderItems.first { $0.ref == expected.folderRef }
+        var issues: [String] = []
+        if let kind = expected.draftKind {
+            if !result.drafts.contains(where: { $0.kind == kind && $0.folderID == folder?.uid }) {
+                issues.append("нет: \(kind.title.lowercased()) в папке «\(folder?.path ?? expected.folderRef)»")
+            }
+        }
+        if let ref = expected.changeRef {
+            if !result.drafts.isEmpty {
+                issues.append("создал новые записи: \(result.drafts.count)")
+            }
+            if !result.changes.contains(where: { $0.op == .folder && $0.target.ref == ref && $0.folder?.uid == folder?.uid }) {
+                issues.append("нет: в папку «\(folder?.path ?? expected.folderRef)» запись \(ref)")
+            }
+        }
+        return issues
+    }
+
+    /// «Идея «Реклама у блогеров» → Проекты / VPN; В папку «Размер ноги» → Шопинг».
+    static func describeFolders(_ result: AIResult) -> String {
+        var parts = result.drafts.map { draft -> String in
+            let path = folderItems.first { $0.uid == draft.folderID }?.path ?? draft.newFolder.map { "новая «\($0)»" }
+            return "\(draft.kind.title) «\(draft.title)» → \(path ?? "без папки")"
+        }
+        parts += result.changes.map { change in
+            "\(change.op.title) «\(change.target.title)»" + (change.folder.map { " → \($0.path)" } ?? "")
+        }
+        return parts.isEmpty ? "ничего" : parts.joined(separator: "; ")
+    }
+
     static func run(_ check: CommandCase, config: AIConfig) async -> Outcome {
         let system = AIPrompt.system(now: now, calendar: calendar, defaultHour: defaults.hour,
                                      defaultMinute: defaults.minute, defaultBefore: defaults.beforeMin,

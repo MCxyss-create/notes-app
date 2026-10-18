@@ -41,18 +41,28 @@ enum AISettings {
 enum AIService {
     /// Спрашивает DeepSeek. Возвращает ответ модели (JSON-строку) — его можно хранить во «Входящих».
     /// known — записи, которые уже есть: ИИ видит их заголовки и сроки и понимает команды.
-    static func ask(_ phrase: String, said reference: Date, known: [AIKnownItem] = []) async throws -> String {
+    /// folders — папки: ИИ раскладывает по ним идеи и заметки.
+    static func ask(_ phrase: String, said reference: Date, known: [AIKnownItem] = [],
+                    folders: [AIKnownFolder] = []) async throws -> String {
         let config = try AISettings.config()
         let defaults = AISettings.parseDefaults
         let system = AIPrompt.system(now: reference, calendar: AISettings.calendar, defaultHour: defaults.hour,
                                      defaultMinute: defaults.minute, defaultBefore: defaults.beforeMin,
-                                     known: AIContext.forPrompt(known))
+                                     known: AIContext.forPrompt(known), folders: folders)
         return try await DeepSeekClient.send(config: config, system: system, phrase: phrase)
     }
 
-    static func parse(_ content: String, said reference: Date, known: [AIKnownItem] = []) throws -> AIResult {
+    static func parse(_ content: String, said reference: Date, known: [AIKnownItem] = [],
+                      folders: [AIKnownFolder] = []) throws -> AIResult {
         try AIParser.parse(content, reference: reference, now: Date(), defaults: AISettings.parseDefaults,
-                           calendar: AISettings.calendar, known: known)
+                           calendar: AISettings.calendar, known: known, folders: folders)
+    }
+
+    /// Все папки с путями — для промта и разбора ответа.
+    @MainActor
+    static func knownFolders(_ context: ModelContext) -> [AIKnownFolder] {
+        let folders = (try? context.fetch(FetchDescriptor<Folder>())) ?? []
+        return AIKnownFolder.list(folders.map(\.node))
     }
 
     /// Все несделанные записи — для команд. Сделанные ИИ не показываем.
@@ -93,6 +103,9 @@ enum AIService {
                 if let body = change.body {
                     item.body = body
                 }
+            case .folder:
+                guard item.kind != .reminder, let folder = change.folder else { continue }
+                item.folderID = folder.uid
             }
             applied.append(change)
         }
@@ -102,9 +115,11 @@ enum AIService {
         return applied
     }
 
-    /// Сохраняет отмеченные карточки как записи.
+    /// Сохраняет отмеченные карточки как записи. «В новую папку X» — создаёт папку наверху
+    /// (одну на все карточки; такая уже есть — кладёт в неё).
     @MainActor
     static func save(_ drafts: [AIDraft], phrase: String, source: ItemSource = .ai, context: ModelContext) {
+        var created: [String: UUID] = [:]
         for draft in drafts where draft.include {
             let dated = draft.kind == .reminder ? draft.due : nil
             let item = Item(
@@ -117,11 +132,37 @@ enum AIService {
                 repeatRule: dated != nil ? draft.repeatRule : nil,
                 tags: draft.tags,
                 rawInput: phrase,
-                source: source
+                source: source,
+                folderID: draft.folderID
             )
+            if draft.kind != .reminder, item.folderID == nil, let name = draft.newFolder {
+                let key = FolderTree.normalize(name)
+                if let id = created[key] {
+                    item.folderID = id
+                } else {
+                    let id = folderForNew(name, context: context)
+                    created[key] = id
+                    item.folderID = id
+                }
+            }
             context.insert(item)
         }
         try? context.save()
+    }
+
+    /// Папка наверху с таким именем: есть — она, нет — новая.
+    @MainActor
+    private static func folderForNew(_ name: String, context: ModelContext) -> UUID {
+        let folders = (try? context.fetch(FetchDescriptor<Folder>())) ?? []
+        let nodes = folders.map(\.node)
+        let key = FolderTree.normalize(name)
+        if let same = FolderTree.children(of: nil, in: nodes).first(where: { FolderTree.normalize($0.name) == key }) {
+            return same.id
+        }
+        let folder = Folder(name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                            sortIndex: (folders.map(\.sortIndex).max() ?? -1) + 1)
+        context.insert(folder)
+        return folder.uid
     }
 }
 
@@ -175,14 +216,15 @@ final class InboxProcessor {
         let descriptor = FetchDescriptor<InboxEntry>(sortBy: [SortDescriptor(\.createdAt)])
         guard let entries = try? context.fetch(descriptor) else { return }
         let known = AIService.knownItems(context)
+        let folders = AIService.knownFolders(context)
         let jobs = entries
             .filter { $0.parsedJSON == nil && (retryFailed || $0.lastError == nil) }
             .map { (id: $0.uid, text: $0.text, said: $0.createdAt) }
 
         for job in jobs {
             do {
-                let content = try await AIService.ask(job.text, said: job.said, known: known)
-                _ = try AIService.parse(content, said: job.said, known: known)
+                let content = try await AIService.ask(job.text, said: job.said, known: known, folders: folders)
+                _ = try AIService.parse(content, said: job.said, known: known, folders: folders)
                 update(job.id) { entry in
                     entry.parsedJSON = content
                     entry.lastError = nil

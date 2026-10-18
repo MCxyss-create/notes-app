@@ -24,6 +24,9 @@ struct DemoConfig: Equatable {
         case searchKeyboard
         /// Настройки, блок «Чтобы «Мысли» были сверху» (срочные уведомления).
         case urgent
+        /// «Идеи» с разделом папок и папка «Проекты / VPN» с вложенной «Реклама».
+        case folders
+        case folder
     }
 
     let screen: Screen
@@ -38,6 +41,7 @@ struct DemoConfig: Equatable {
 
 enum DemoData {
     static let editTitle = "Подойти к учителю"
+    static let folderVPN = "VPN"
     /// Что «слышит» микрофон на снимке «Слушаю».
     static let listeningText = "перенеси учителя на понедельник и маме позвонил"
 
@@ -80,6 +84,15 @@ enum DemoData {
             return DateMath.atTime(d, hour: hour, minute: minute, calendar: calendar)
         }
 
+        // Папки: Проекты → VPN → Реклама и Школа.
+        let projects = Folder(name: "Проекты", color: .blue, symbol: "briefcase", sortIndex: 0)
+        let vpn = Folder(name: folderVPN, color: .green, symbol: "folder", parentID: projects.uid, sortIndex: 1)
+        let ads = Folder(name: "Реклама", color: .orange, symbol: "star", parentID: vpn.uid, sortIndex: 2)
+        let school = Folder(name: "Школа", color: .purple, symbol: "graduationcap", sortIndex: 3)
+        for folder in [projects, vpn, ads, school] {
+            context.insert(folder)
+        }
+
         let items: [Item] = [
             Item(kind: .reminder, title: "Оплатить интернет", dueAt: now.addingTimeInterval(-3 * 3600), remindBeforeMin: 15),
             Item(kind: .reminder, title: "Позвонить маме", dueAt: now.addingTimeInterval(40 * 60), remindBeforeMin: 15),
@@ -92,7 +105,13 @@ enum DemoData {
             Item(kind: .reminder, title: "Отправить домашку", isDone: true, doneAt: now.addingTimeInterval(-3600)),
             Item(kind: .idea, title: "Бот, который сам считает расходы", body: "Пишу «кофе 250» — он записывает в таблицу", isPinned: true),
             Item(kind: .idea, title: "Тёмная тема для приложения"),
-            Item(kind: .idea, title: "Виджет с ближайшим делом", createdAt: now.addingTimeInterval(-2 * 86_400)),
+            Item(kind: .idea, title: "Виджет с ближайшим делом", createdAt: now.addingTimeInterval(-2 * 86_400),
+                 folderID: projects.uid),
+            Item(kind: .idea, title: "Свой сервер в Финляндии", createdAt: now.addingTimeInterval(-3600), folderID: vpn.uid),
+            Item(kind: .note, title: "Тариф — 199 ₽ в месяц", body: "Пробный период 3 дня",
+                 createdAt: now.addingTimeInterval(-5 * 3600), folderID: vpn.uid),
+            Item(kind: .idea, title: "Реклама у блогеров", createdAt: now.addingTimeInterval(-7200), folderID: ads.uid),
+            Item(kind: .note, title: "Расписание звонков", body: "1 урок 8:30–9:15", folderID: school.uid),
             Item(kind: .note, title: "Размер ноги — 43 EU"),
             Item(kind: .note, title: "Пароль от Wi-Fi на даче", body: "Написан на роутере снизу", createdAt: now.addingTimeInterval(-86_400)),
         ]

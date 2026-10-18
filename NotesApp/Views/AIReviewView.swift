@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 /// Что ИИ понял из одной фразы.
 struct AIReview: Identifiable {
@@ -17,6 +18,7 @@ struct AIReviewView: View {
     let onSave: ([AIDraft], [AIChange]) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: \Folder.sortIndex) private var folders: [Folder]
     @State private var review: AIReview
 
     init(review: AIReview, onSave: @escaping ([AIDraft], [AIChange]) -> Void) {
@@ -95,7 +97,8 @@ struct AIReviewView: View {
                 } else {
                     ForEach($review.drafts) { $draft in
                         Section {
-                            DraftCard(draft: draft, selectable: selectable) {
+                            DraftCard(draft: draft, selectable: selectable,
+                                      folderText: DraftFolder.text(draft, folders: folders)) {
                                 draft.include.toggle()
                             }
                             NavigationLink {
@@ -192,6 +195,11 @@ struct ChangeRow: View {
                     }
                 case .delete:
                     EmptyView()
+                case .folder:
+                    if let folder = change.folder {
+                        Label(folder.path, systemImage: "folder")
+                            .font(.subheadline)
+                    }
                 }
 
                 if let warning = change.warning {
@@ -238,6 +246,8 @@ struct FoundRow: View {
 struct DraftCard: View {
     let draft: AIDraft
     let selectable: Bool
+    /// «Проекты / VPN» или «Новая папка: X». nil — без папки.
+    var folderText: String? = nil
     var onToggle: () -> Void = {}
 
     var body: some View {
@@ -282,6 +292,14 @@ struct DraftCard: View {
                     .foregroundStyle(Color.primary)
                 }
 
+                if let folderText {
+                    Label(folderText, systemImage: "folder.fill")
+                        .font(.caption.weight(.medium))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color(.tertiarySystemFill), in: Capsule())
+                }
+
                 if !draft.tags.isEmpty {
                     Text(draft.tags.map { "#\($0)" }.joined(separator: " "))
                         .font(.caption)
@@ -305,9 +323,22 @@ struct DraftCard: View {
     }
 }
 
+/// Папка карточки для показа: путь, «Новая папка: X» или nil.
+enum DraftFolder {
+    static func text(_ draft: AIDraft, folders: [Folder]) -> String? {
+        guard draft.kind != .reminder else { return nil }
+        let nodes = folders.map(\.node)
+        if let id = draft.folderID, !FolderTree.isLoose(id, in: nodes) {
+            return FolderTree.pathText(id, in: nodes)
+        }
+        return draft.newFolder.map { "Новая папка: \($0)" }
+    }
+}
+
 /// Правка карточки до сохранения.
 struct DraftEditView: View {
     @Binding var draft: AIDraft
+    @Query(sort: \Folder.sortIndex) private var folders: [Folder]
     @State private var tagsText = ""
 
     var body: some View {
@@ -343,6 +374,21 @@ struct DraftEditView: View {
                                 Text(rule.title).tag(RepeatRule?.some(rule))
                             }
                         }
+                    }
+                }
+            }
+
+            if draft.kind != .reminder {
+                Section {
+                    NavigationLink {
+                        FolderPickerList(selection: draft.folderID) { picked in
+                            draft.folderID = picked
+                            draft.newFolder = nil
+                        }
+                        .navigationTitle("Папка")
+                        .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        LabeledContent("Папка", value: DraftFolder.text(draft, folders: folders) ?? "Без папки")
                     }
                 }
             }

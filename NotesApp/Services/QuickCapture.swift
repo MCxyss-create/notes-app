@@ -48,8 +48,9 @@ enum QuickCapture {
 
         do {
             let known = AIService.knownItems(context)
-            let content = try await askWithTimeout(phrase, said: now, known: known)
-            let result = try AIService.parse(content, said: now, known: known)
+            let folders = AIService.knownFolders(context)
+            let content = try await askWithTimeout(phrase, said: now, known: known, folders: folders)
+            let result = try AIService.parse(content, said: now, known: known, folders: folders)
             // Команда или вопрос: «маме позвонил», «что у меня завтра?» — заметку не создаём.
             if result.drafts.isEmpty && (!result.changes.isEmpty || result.answered) {
                 let applied = AIService.apply(result.changes, context: context, now: now, allowDelete: false)
@@ -86,10 +87,11 @@ enum QuickCapture {
     }
 
     /// Siri долго не ждёт: если DeepSeek не ответил за 20 секунд — во «Входящие».
-    private static func askWithTimeout(_ phrase: String, said: Date, known: [AIKnownItem]) async throws -> String {
+    private static func askWithTimeout(_ phrase: String, said: Date, known: [AIKnownItem],
+                                       folders: [AIKnownFolder]) async throws -> String {
         try await withThrowingTaskGroup(of: String.self) { group in
             group.addTask {
-                try await AIService.ask(phrase, said: said, known: known)
+                try await AIService.ask(phrase, said: said, known: known, folders: folders)
             }
             group.addTask {
                 try await Task.sleep(nanoseconds: 20_000_000_000)

@@ -182,6 +182,8 @@ jobs:
           shot editKeyboard 14-klaviatura-kartochka
           shot searchKeyboard 15-klaviatura-poisk
           shot urgent 16-srochnye
+          shot folders 17-papki
+          shot folder 18-papka-vpn
           xcrun simctl ui "$SIM" appearance dark || true
           shot feed 8-lenta-temnaya
 

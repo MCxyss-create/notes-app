@@ -11,6 +11,7 @@ struct SearchRequest: Identifiable {
 struct SearchView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Item.createdAt, order: .reverse) private var items: [Item]
+    @Query(sort: \Folder.sortIndex) private var folders: [Folder]
     @State private var query = ""
     @State private var editing: Item?
     private let initialQuery: String
@@ -96,7 +97,10 @@ struct SearchView: View {
 
     @ViewBuilder
     private var results: some View {
-        let found = items.filter { SearchMatcher.matches(SearchFields(item: $0), query: query) }
+        let nodes = folders.map(\.node)
+        let found = items.filter {
+            SearchMatcher.matches(SearchFields(item: $0, folderPath: folderPath($0, nodes: nodes)), query: query)
+        }
         if found.isEmpty {
             Section {
                 Text("Ничего не нашлось")
@@ -108,14 +112,28 @@ struct SearchView: View {
                 if !group.isEmpty {
                     Section(sectionTitle(kind, count: group.count)) {
                         ForEach(group) { item in
-                            ItemRow(item: item, now: Date())
-                                .contentShape(Rectangle())
-                                .onTapGesture { editing = item }
+                            VStack(alignment: .leading, spacing: 2) {
+                                ItemRow(item: item, now: Date())
+                                if let path = folderPath(item, nodes: nodes) {
+                                    Label(path, systemImage: "folder")
+                                        .font(.caption)
+                                        .foregroundStyle(Color.secondary)
+                                        .padding(.leading, 36)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture { editing = item }
                         }
                     }
                 }
             }
         }
+    }
+
+    /// Путь папки записи серым под строкой. Без папки — nil.
+    private func folderPath(_ item: Item, nodes: [FolderNode]) -> String? {
+        guard let id = item.folderID, !FolderTree.isLoose(id, in: nodes) else { return nil }
+        return FolderTree.pathText(id, in: nodes)
     }
 
     private func sectionTitle(_ kind: ItemKind, count: Int) -> String {
@@ -128,7 +146,7 @@ struct SearchView: View {
 }
 
 extension SearchFields {
-    init(item: Item) {
-        self.init(title: item.title, body: item.body, rawInput: item.rawInput, tags: item.tags)
+    init(item: Item, folderPath: String? = nil) {
+        self.init(title: item.title, body: item.body, rawInput: item.rawInput, tags: item.tags, folderPath: folderPath)
     }
 }

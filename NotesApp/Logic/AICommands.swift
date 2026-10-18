@@ -31,6 +31,32 @@ struct AIKnownItem: Identifiable, Equatable {
     }
 }
 
+/// Папка, как её видит ИИ: ref — первые 6 знаков uid, path — «Проекты / VPN».
+struct AIKnownFolder: Identifiable, Equatable {
+    let ref: String
+    let uid: UUID
+    let name: String
+    let path: String
+    /// Папка верхнего уровня.
+    var isTop: Bool { path == name }
+
+    var id: UUID { uid }
+
+    init(uid: UUID, name: String, path: String? = nil) {
+        self.ref = AIKnownItem.ref(for: uid)
+        self.uid = uid
+        self.name = name
+        self.path = path ?? name
+    }
+
+    /// Все папки с путями, по порядку дерева.
+    static func list(_ nodes: [FolderNode]) -> [AIKnownFolder] {
+        FolderTree.lines(nodes).map {
+            AIKnownFolder(uid: $0.node.id, name: $0.node.name, path: FolderTree.pathText($0.node.id, in: nodes))
+        }
+    }
+}
+
 /// Изменение уже сохранённой записи по команде («перенеси», «готово», «удали»).
 /// Применяется только после кнопки на карточке.
 struct AIChange: Identifiable, Equatable {
@@ -39,6 +65,8 @@ struct AIChange: Identifiable, Equatable {
         case move
         case delete
         case edit
+        /// Переложить идею или заметку в папку.
+        case folder
 
         var title: String {
             switch self {
@@ -46,6 +74,7 @@ struct AIChange: Identifiable, Equatable {
             case .move: return "Перенести"
             case .delete: return "Удалить"
             case .edit: return "Изменить"
+            case .folder: return "В папку"
             }
         }
 
@@ -56,6 +85,7 @@ struct AIChange: Identifiable, Equatable {
             case .move: return "Перенёс"
             case .delete: return "Удалил"
             case .edit: return "Изменил"
+            case .folder: return "Переложил"
             }
         }
 
@@ -65,6 +95,7 @@ struct AIChange: Identifiable, Equatable {
             case .move: return "calendar.badge.clock"
             case .delete: return "trash"
             case .edit: return "pencil"
+            case .folder: return "folder"
             }
         }
     }
@@ -76,6 +107,8 @@ struct AIChange: Identifiable, Equatable {
     var timeGiven = true
     var title: String? = nil
     var body: String? = nil
+    /// Для «В папку»: куда переложить.
+    var folder: AIKnownFolder? = nil
     var warning: String? = nil
     var include = true
 }
@@ -123,7 +156,7 @@ enum AIContext {
 /// Разбор команд из ответа DeepSeek: "changes" и "found". Номера, которых нет в списке, — мимо.
 extension AIParser {
     static func changes(_ value: Any?, known: [AIKnownItem], reference: Date, now: Date,
-                        defaults: ParseDefaults, calendar: Calendar) -> [AIChange] {
+                        defaults: ParseDefaults, calendar: Calendar, folders: [AIKnownFolder] = []) -> [AIChange] {
         let list = ((value as? [Any]) ?? []).compactMap { $0 as? [String: Any] }
         var result: [AIChange] = []
         for raw in list {
@@ -150,6 +183,10 @@ extension AIParser {
                 guard newTitle != nil || newBody != nil else { continue }
                 change.title = newTitle
                 change.body = newBody
+            case .folder:
+                // Дела в папки не кладутся; незнакомая папка — мимо.
+                guard target.kind != .reminder, let folder = findFolder(raw["folder"], in: folders) else { continue }
+                change.folder = folder
             }
             result.append(change)
         }
@@ -174,6 +211,7 @@ extension AIParser {
         case "move", "reschedule", "snooze", "postpone", "shift": return .move
         case "delete", "remove": return .delete
         case "edit", "rename", "update", "append": return .edit
+        case "folder", "move_to_folder", "file": return .folder
         default: return nil
         }
     }
@@ -194,6 +232,14 @@ extension AIParser {
         key = key.filter { $0 != "-" }
         guard key.count >= 4 else { return nil }
         return known.first { $0.ref == key } ?? known.first { key.hasPrefix($0.ref) }
+    }
+
+    /// Папка по номеру из списка: «f1a2b3», полный uid. Незнакомый номер — nil.
+    static func findFolder(_ value: Any?, in folders: [AIKnownFolder]) -> AIKnownFolder? {
+        guard var key = text(value)?.lowercased() else { return nil }
+        key = key.trimmingCharacters(in: CharacterSet(charactersIn: "# ")).filter { $0 != "-" }
+        guard key.count >= 4 else { return nil }
+        return folders.first { $0.ref == key } ?? folders.first { key.hasPrefix($0.ref) }
     }
 
     /// Новый срок для «перенеси». Назван только день — остаётся прежнее время записи.

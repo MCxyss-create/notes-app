@@ -7,6 +7,7 @@ struct EditItemView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Query(sort: \Folder.sortIndex) private var folders: [Folder]
     @State private var hasDue: Bool
     @State private var due: Date
     @State private var confirmDelete = false
@@ -41,6 +42,8 @@ struct EditItemView: View {
 
                 if item.kind == .reminder {
                     reminderSection
+                } else {
+                    folderSection
                 }
 
                 Section {
@@ -133,6 +136,27 @@ struct EditItemView: View {
                 Text("Повторяется: «Выполнено» переносит дело на следующий раз.")
             }
         }
+    }
+
+    /// У идей и заметок — папка. У дел строки нет: дела в папки не кладутся.
+    private var folderSection: some View {
+        Section {
+            NavigationLink {
+                FolderPickerList(selection: item.folderID) { picked in
+                    item.folderID = picked
+                }
+                .navigationTitle("Папка")
+                .navigationBarTitleDisplayMode(.inline)
+            } label: {
+                LabeledContent("Папка", value: folderText)
+            }
+        }
+    }
+
+    private var folderText: String {
+        let nodes = folders.map(\.node)
+        guard let id = item.folderID, !FolderTree.isLoose(id, in: nodes) else { return "Без папки" }
+        return FolderTree.pathText(id, in: nodes)
     }
 
     private var repeatBinding: Binding<RepeatRule?> {

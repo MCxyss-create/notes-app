@@ -21,7 +21,12 @@ final class AILiveCheckTests: XCTestCase {
             if outcome.passed { passed += 1 }
             print("AI-CHECK \(outcome.passed ? "✅" : "❌") команда «\(check.phrase)» → \(outcome.details)")
         }
-        let total = AIControlCheck.cases.count + AIControlCheck.commandCases.count
+        for check in AIControlCheck.folderCases {
+            let outcome = await AIControlCheck.run(check, config: config)
+            if outcome.passed { passed += 1 }
+            print("AI-CHECK \(outcome.passed ? "✅" : "❌") папки «\(check.phrase)» → \(outcome.details)")
+        }
+        let total = AIControlCheck.cases.count + AIControlCheck.commandCases.count + AIControlCheck.folderCases.count
         print("AI-CHECK Итог: верно \(passed) из \(total)")
     }
 }

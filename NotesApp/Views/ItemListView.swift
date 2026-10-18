@@ -1,17 +1,20 @@
 import SwiftUI
 import SwiftData
 
-/// Список идей или заметок. Закреплённые — сверху.
+/// Список идей или заметок. Сверху — папки, ниже — записи без папки, закреплённые сверху.
+/// Записи из папок сюда не попадают — они внутри папок (поиск находит всё).
 struct ItemListView: View {
     let kind: ItemKind
     var onEdit: (Item) -> Void
 
-    @Environment(\.modelContext) private var context
     @Query(sort: \Item.createdAt, order: .reverse) private var items: [Item]
+    @Query(sort: \Folder.sortIndex) private var folders: [Folder]
+    @State private var menu = FolderMenu()
 
     private var visible: [Item] {
-        items
-            .filter { $0.kind == kind }
+        let nodes = folders.map(\.node)
+        return items
+            .filter { $0.kind == kind && FolderTree.isLoose($0.folderID, in: nodes) }
             .sorted { a, b in
                 if a.isPinned != b.isPinned { return a.isPinned }
                 return a.createdAt > b.createdAt
@@ -28,55 +31,41 @@ struct ItemListView: View {
 
     var body: some View {
         let list = visible
-        if list.isEmpty {
-            ContentUnavailableView(emptyTitle, systemImage: kind.symbol, description: Text(emptyText))
-        } else {
-            List {
-                ForEach(list) { item in
-                    row(item)
+        Group {
+            if list.isEmpty && folders.isEmpty {
+                ContentUnavailableView {
+                    Label(emptyTitle, systemImage: kind.symbol)
+                } description: {
+                    Text(emptyText)
+                } actions: {
+                    Button("Новая папка") {
+                        menu.editing = .create(parent: nil)
+                    }
                 }
-            }
-            .listStyle(.insetGrouped)
-            .scrollDismissesKeyboard(.interactively)
-        }
-    }
+            } else {
+                List {
+                    FolderSection(parentID: nil, folders: folders,
+                                  folderIDs: items.filter { $0.kind != .reminder }.map(\.folderID), menu: $menu)
 
-    private func row(_ item: Item) -> some View {
-        ItemRow(item: item, now: Date())
-            .contentShape(Rectangle())
-            .onTapGesture { onEdit(item) }
-            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                Button {
-                    withAnimation { item.isPinned.toggle() }
-                } label: {
-                    Label(item.isPinned ? "Открепить" : "Закрепить",
-                          systemImage: item.isPinned ? "pin.slash" : "pin")
+                    Section {
+                        if list.isEmpty {
+                            Text(emptyText)
+                                .foregroundStyle(Color.secondary)
+                        } else {
+                            ForEach(list) { item in
+                                NoteRow(item: item, onEdit: onEdit, onFile: { menu.filing = $0 })
+                            }
+                        }
+                    } header: {
+                        if !folders.isEmpty {
+                            Text("Без папки")
+                        }
+                    }
                 }
-                .tint(.orange)
+                .listStyle(.insetGrouped)
+                .scrollDismissesKeyboard(.interactively)
             }
-            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                Button(role: .destructive) {
-                    withAnimation { context.delete(item) }
-                } label: {
-                    Label("Удалить", systemImage: "trash")
-                }
-            }
-            .contextMenu {
-                Button {
-                    onEdit(item)
-                } label: {
-                    Label("Изменить", systemImage: "pencil")
-                }
-                Button {
-                    withAnimation { item.isPinned.toggle() }
-                } label: {
-                    Label(item.isPinned ? "Открепить" : "Закрепить", systemImage: "pin")
-                }
-                Button(role: .destructive) {
-                    withAnimation { context.delete(item) }
-                } label: {
-                    Label("Удалить", systemImage: "trash")
-                }
-            }
+        }
+        .folderSheets($menu)
     }
 }

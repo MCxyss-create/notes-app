@@ -5,8 +5,9 @@ enum AIPrompt {
     static let weekdays = ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"]
 
     /// known — записи, которые уже есть (уже отобранные `AIContext.forPrompt`): по ним ИИ понимает команды.
+    /// folders — папки для идей и заметок: ИИ раскладывает по ним сам.
     static func system(now: Date, calendar: Calendar, defaultHour: Int, defaultMinute: Int, defaultBefore: Int,
-                       known: [AIKnownItem] = []) -> String {
+                       known: [AIKnownItem] = [], folders: [AIKnownFolder] = []) -> String {
         let zone = calendar.timeZone
         let offset = offsetText(zone.secondsFromGMT(for: now))
         let defaultTime = String(format: "%02d:%02d", defaultHour, defaultMinute)
@@ -56,8 +57,22 @@ enum AIPrompt {
 
         Сообщение часто надиктовано голосом: без знаков препинания, со словами-паразитами (ну, короче, типа, как бы, э-э, вот, это самое) и ошибками распознавания. Слова-паразиты убирай, очевидные ошибки исправляй по смыслу, знаки расставляй. В title и body — чистый текст, а не сырая речь.
         """
-        guard !known.isEmpty else { return base }
-        return base + "\n\n" + commands(known, now: now, calendar: calendar, offset: offset, defaultTime: defaultTime)
+        let filed = base + "\n\n" + folderRules(folders)
+        guard !known.isEmpty else { return filed }
+        return filed + "\n\n" + commands(known, now: now, calendar: calendar, offset: offset, defaultTime: defaultTime)
+    }
+
+    /// Список папок и когда класть в них идеи и заметки.
+    static func folderRules(_ folders: [AIKnownFolder]) -> String {
+        let list = folders.isEmpty
+            ? "Папок пока нет."
+            : "Папки для идей и заметок (id | путь):\n" + folders.map { "- \($0.ref) | \($0.path)" }.joined(separator: "\n")
+        return """
+        \(list)
+
+        У idea и note можно указать "folder" — id папки из списка, только если по смыслу ясно, куда: «идея для VPN: …», «в папку школа», «для проекта VPN». Не уверен — "folder": null. У reminder "folder" всегда null.
+        Новую папку не создавай. Только если прямо сказано «создай папку X» или «в новую папку X» — "folder_new": "X", а "folder": null.
+        """
     }
 
     /// Список записей и правила команд: «перенеси», «готово», «удали», «переименуй», «что у меня…».
@@ -74,6 +89,7 @@ enum AIPrompt {
         - перенести («перенеси на пятницу», «сдвинь на час», «отложи на завтра») → {"op":"move","id":"\(example)","due":"\(later)T\(defaultTime):00\(offset)","time_given":true}. Назван только день — оставь прежнее время записи. «Сдвинь на час» — от прежнего срока.
         - удалить («удали», «убери», «больше не надо») → {"op":"delete","id":"\(example)"}
         - переименовать или дописать → {"op":"edit","id":"\(example)","title":"…","body":"…"} — только то, что меняется.
+        - переложить идею или заметку в папку («перенеси идею про бота в папку VPN») → {"op":"folder","id":"\(example)","folder":"<id папки из списка>"}.
         Вопрос про записи («что у меня завтра?», «что просрочено?», «какие идеи?») → "found": id подходящих записей по порядку, items и changes пустые, reply — короткий ответ по-русски.
         Не уверен, о какой записи речь, — ничего не меняй и спроси в reply.
         В одном сообщении могут быть и новые записи, и команды — тогда заполни и items, и changes.

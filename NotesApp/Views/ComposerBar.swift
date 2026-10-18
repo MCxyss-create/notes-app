@@ -6,6 +6,8 @@ import SwiftData
 struct ComposerBar: View {
     let defaultKind: ItemKind
     let autoFocus: Bool
+    /// Открыта папка: новые идеи и заметки ложатся в неё (с ✨ — если ИИ не выбрал другую).
+    var folderID: UUID? = nil
     var demoShowDue: Bool = false
     var demoReview: AIReview? = nil
     var demoListening: Bool = false
@@ -343,17 +345,24 @@ struct ComposerBar: View {
         guard !phrase.isEmpty, !working else { return }
         let said = Date()
         let known = AIService.knownItems(context)
+        let folders = AIService.knownFolders(context)
+        let openFolder = folderID
         text = ""
         notice = nil
         working = true
         Task {
             do {
-                let content = try await AIService.ask(phrase, said: said, known: known)
-                let result = try AIService.parse(content, said: said, known: known)
+                let content = try await AIService.ask(phrase, said: said, known: known, folders: folders)
+                let result = try AIService.parse(content, said: said, known: known, folders: folders)
                 working = false
                 reviewPhrase = phrase
                 reviewSaved = false
-                review = AIReview(phrase: phrase, reply: result.reply, drafts: result.drafts,
+                var drafts = result.drafts
+                for index in drafts.indices where drafts[index].kind != .reminder
+                    && drafts[index].folderID == nil && drafts[index].newFolder == nil {
+                    drafts[index].folderID = openFolder
+                }
+                review = AIReview(phrase: phrase, reply: result.reply, drafts: drafts,
                                   changes: result.changes, found: result.found, answered: result.answered)
                 // Сеть есть — заодно разберём, что ждёт во «Входящих».
                 InboxProcessor.shared.kick()
@@ -406,7 +415,8 @@ struct ComposerBar: View {
             body: rest.isEmpty ? nil : rest,
             dueAt: dueDate,
             timeGiven: timeGiven,
-            remindBeforeMin: (dueDate != nil && defaultBefore > 0) ? defaultBefore : nil
+            remindBeforeMin: (dueDate != nil && defaultBefore > 0) ? defaultBefore : nil,
+            folderID: folderID
         )
         withAnimation {
             context.insert(item)

@@ -145,7 +145,8 @@ struct InboxView: View {
     private func open(_ entry: InboxEntry) {
         let known = AIService.knownItems(context)
         guard let json = entry.parsedJSON,
-              let result = try? AIService.parse(json, said: entry.createdAt, known: known) else {
+              let result = try? AIService.parse(json, said: entry.createdAt, known: known,
+                                                folders: AIService.knownFolders(context)) else {
             Task { await parseAll() }
             return
         }

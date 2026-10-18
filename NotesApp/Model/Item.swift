@@ -19,6 +19,8 @@ final class Item {
     var isPinned: Bool = false
     var rawInput: String?
     var sourceRaw: String = "manual"
+    /// Папка идеи или заметки. nil — «Без папки». У дел всегда nil.
+    var folderID: UUID?
 
     init(
         kind: ItemKind,
@@ -34,7 +36,8 @@ final class Item {
         tags: [String] = [],
         isPinned: Bool = false,
         rawInput: String? = nil,
-        source: ItemSource = .manual
+        source: ItemSource = .manual,
+        folderID: UUID? = nil
     ) {
         self.uid = UUID()
         self.kindRaw = kind.rawValue
@@ -51,11 +54,16 @@ final class Item {
         self.isPinned = isPinned
         self.rawInput = rawInput
         self.sourceRaw = source.rawValue
+        self.folderID = kind == .reminder ? nil : folderID
     }
 
     var kind: ItemKind {
         get { ItemKind(rawValue: kindRaw) ?? .note }
-        set { kindRaw = newValue.rawValue }
+        set {
+            kindRaw = newValue.rawValue
+            // Дела в папки не кладутся.
+            if newValue == .reminder { folderID = nil }
+        }
     }
 
     var repeatRule: RepeatRule? {

@@ -14,7 +14,7 @@ final class BackupAndSearchTests: XCTestCase {
         let file = try Backup.decode(Backup.encode(items, exportedAt: TestCalendar.date("2026-10-17 12:00")))
 
         XCTAssertEqual(file.app, "Мысли")
-        XCTAssertEqual(file.version, 1)
+        XCTAssertEqual(file.version, Backup.version)
         XCTAssertEqual(file.items, items)
     }
 

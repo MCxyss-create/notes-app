@@ -22,6 +22,10 @@ struct AIDraft: Identifiable, Equatable {
     var warning: String?
     /// Сохранять ли эту карточку.
     var include = true
+    /// Папка идеи или заметки (у дел — nil).
+    var folderID: UUID? = nil
+    /// «в новую папку X»: папку создаст сохранение, если такой ещё нет.
+    var newFolder: String? = nil
 
     /// Фраза как есть — заметкой: первая строка — заголовок, остальное — подробности.
     static func note(from phrase: String) -> AIDraft {
@@ -53,7 +57,7 @@ enum AIParser {
     /// Они различаются у фраз из «Входящих», разобранных позже.
     /// known — записи, которые уже есть: по ним разбираются команды и вопросы.
     static func parse(_ content: String, reference: Date, now: Date, defaults: ParseDefaults, calendar: Calendar,
-                      known: [AIKnownItem] = []) throws -> AIResult {
+                      known: [AIKnownItem] = [], folders: [AIKnownFolder] = []) throws -> AIResult {
         guard let root = jsonObject(content) else {
             throw AIError.badResponse("это не JSON")
         }
@@ -61,11 +65,12 @@ enum AIParser {
             throw AIError.badResponse("нет списка записей")
         }
         let list = ((root["items"] as? [Any]) ?? []).compactMap { $0 as? [String: Any] }
-        let drafts = list.compactMap {
-            draft(from: $0, reference: reference, now: now, defaults: defaults, calendar: calendar)
+        let drafts = list.compactMap { raw in
+            draft(from: raw, reference: reference, now: now, defaults: defaults, calendar: calendar)
+                .map { filed($0, raw: raw, folders: folders) }
         }
         let changes = self.changes(root["changes"], known: known, reference: reference, now: now,
-                                   defaults: defaults, calendar: calendar)
+                                   defaults: defaults, calendar: calendar, folders: folders)
         let found = self.found(root["found"], known: known)
         let answered = root["found"] is [Any] && drafts.isEmpty && changes.isEmpty
         return AIResult(reply: text(root["reply"]) ?? "", drafts: drafts, changes: changes,
@@ -127,6 +132,26 @@ enum AIParser {
         return AIDraft(kind: .reminder, title: title, body: details, due: due, timeGiven: timeGiven,
                        remindBeforeMin: before > 0 ? min(before, maxBeforeMin) : nil,
                        repeatRule: rule, tags: tagList, warning: warning)
+    }
+
+    /// Папка из ответа: "folder" — номер из списка, "folder_new" — имя новой папки.
+    /// Дела в папки не кладутся; незнакомый номер — без папки. Новая папка с именем уже
+    /// существующей — в существующую.
+    static func filed(_ draft: AIDraft, raw: [String: Any], folders: [AIKnownFolder]) -> AIDraft {
+        guard draft.kind != .reminder else { return draft }
+        var result = draft
+        if let folder = findFolder(raw["folder"], in: folders) {
+            result.folderID = folder.uid
+        } else if let name = text(raw["folder_new"]).map({ String($0.prefix(40)) }) {
+            let key = FolderTree.normalize(name)
+            let same = folders.filter { FolderTree.normalize($0.name) == key }
+            if let existing = same.first(where: \.isTop) ?? same.first {
+                result.folderID = existing.uid
+            } else {
+                result.newFolder = name
+            }
+        }
+        return result
     }
 
     /// Ближайший повтор не раньше reference: каждый день / неделю / месяц от исходной даты.

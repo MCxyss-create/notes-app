@@ -141,7 +141,7 @@ struct SettingsView: View {
                     .autocorrectionDisabled()
             }
 
-            NavigationLink("Проверить разбор: 8 фраз и 4 команды") {
+            NavigationLink("Проверить разбор: 8 фраз, 4 команды, 2 про папки") {
                 AICheckView()
             }
         } header: {
@@ -286,14 +286,16 @@ struct SettingsView: View {
         } header: {
             Text("Резервная копия")
         } footer: {
-            Text("Все записи одним файлом JSON. Восстановление добавляет только те записи, которых ещё нет.")
+            Text("Все записи и папки одним файлом JSON. Восстановление добавляет только те, которых ещё нет.")
         }
     }
 
     private func prepareExport() {
         let items = (try? context.fetch(FetchDescriptor<Item>(sortBy: [SortDescriptor(\Item.createdAt)]))) ?? []
+        let folders = (try? context.fetch(FetchDescriptor<Folder>(sortBy: [SortDescriptor(\Folder.sortIndex)]))) ?? []
         do {
-            exportDocument = BackupDocument(data: try Backup.encode(items.map { BackupItem(item: $0) }))
+            exportDocument = BackupDocument(data: try Backup.encode(items.map { BackupItem(item: $0) },
+                                                                    folders: folders.map { BackupFolder(folder: $0) }))
             backupMessage = nil
             showExporter = true
         } catch {
@@ -312,6 +314,10 @@ struct SettingsView: View {
             }
             do {
                 let file = try Backup.decode(try Data(contentsOf: url))
+                let existingFolders = Set(((try? context.fetch(FetchDescriptor<Folder>())) ?? []).map(\.uid))
+                for backup in Backup.newFolders(in: file, existing: existingFolders) {
+                    context.insert(backup.makeFolder())
+                }
                 let existing = Set(((try? context.fetch(FetchDescriptor<Item>())) ?? []).map(\.uid))
                 let fresh = Backup.newItems(in: file, existing: existing)
                 for backup in fresh {

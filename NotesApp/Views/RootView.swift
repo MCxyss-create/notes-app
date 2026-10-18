@@ -34,7 +34,10 @@ struct RootView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Item.createdAt) private var allItems: [Item]
     @Query(sort: \InboxEntry.createdAt) private var inbox: [InboxEntry]
+    @Query(sort: \Folder.sortIndex) private var folders: [Folder]
     @State private var page: MainPage = .feed
+    /// Открытые папки: «Идеи» → «Проекты» → «VPN». Поле ввода кладёт записи в последнюю.
+    @State private var folderPath: [FolderRoute] = []
     @State private var showSettings = false
     @State private var showInbox = false
     /// Открытый поиск и с каким запросом. Через item, чтобы запрос не терялся при открытии.
@@ -45,7 +48,7 @@ struct RootView: View {
     @AppStorage(SettingsKeys.listenOnOpen) private var listenOnOpen = true
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $folderPath) {
             VStack(spacing: 0) {
                 Picker("Раздел", selection: $page) {
                     ForEach(MainPage.allCases) { p in
@@ -69,16 +72,6 @@ struct RootView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .keyboardDismissable()
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                ComposerBar(
-                    defaultKind: page.kind,
-                    autoFocus: demo == nil,
-                    demoShowDue: demo?.screen == .due,
-                    demoReview: demo?.screen == .review ? DemoData.review()
-                        : demo?.screen == .command ? DemoData.commandReview() : nil,
-                    demoListening: demo?.screen == .listen
-                )
-            }
             .navigationTitle("Мысли")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -99,18 +92,34 @@ struct RootView: View {
                     .accessibilityLabel("Настройки")
                 }
             }
-            .sheet(isPresented: $showSettings, onDismiss: reschedule) {
-                SettingsView(demoUrgent: demo?.screen == .urgent)
+            .navigationDestination(for: FolderRoute.self) { route in
+                FolderView(folderID: route.id, onEdit: { editing = $0 })
             }
-            .sheet(item: $editing) { item in
-                EditItemView(item: item)
-            }
-            .sheet(isPresented: $showInbox) {
-                InboxView()
-            }
-            .sheet(item: $search) { request in
-                SearchView(initialQuery: request.query)
-            }
+        }
+        // Поле ввода — над всеми экранами стека: в открытой папке оно то же самое и кладёт записи туда.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            ComposerBar(
+                defaultKind: page.kind,
+                autoFocus: demo == nil,
+                folderID: folderPath.last?.id,
+                demoShowDue: demo?.screen == .due,
+                demoReview: demo?.screen == .review ? DemoData.review()
+                    : demo?.screen == .command ? DemoData.commandReview() : nil,
+                demoListening: demo?.screen == .listen
+            )
+        }
+        // Листы — у стека, а не у главного экрана: их открывают и из папок.
+        .sheet(isPresented: $showSettings, onDismiss: reschedule) {
+            SettingsView(demoUrgent: demo?.screen == .urgent)
+        }
+        .sheet(item: $editing) { item in
+            EditItemView(item: item)
+        }
+        .sheet(isPresented: $showInbox) {
+            InboxView()
+        }
+        .sheet(item: $search) { request in
+            SearchView(initialQuery: request.query)
         }
         .onChange(of: signature) {
             reschedule()
@@ -238,8 +247,14 @@ struct RootView: View {
             showInbox = true
         case .search:
             search = SearchRequest(query: "#школа")
-        case .ideas:
+        case .ideas, .folders:
             page = .ideas
+        case .folder:
+            page = .ideas
+            let nodes = folders.map(\.node)
+            if let vpn = nodes.first(where: { $0.name == DemoData.folderVPN }) {
+                folderPath = FolderTree.path(to: vpn.id, in: nodes).map { FolderRoute(id: $0.id) }
+            }
         case .notes:
             page = .notes
         case .settings, .urgent:

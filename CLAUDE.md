@@ -66,6 +66,25 @@ https://claude.ai/code/artifact/42ecb5d0-3680-4a14-96ec-ebeb89d9fcc7
 | isPinned | Bool | |
 | rawInput | String? | исходная фраза, сказанная ИИ |
 | source | enum: manual / ai | |
+| folderID | UUID? | папка идеи или заметки; nil — «Без папки», у дел всегда nil |
+
+## Папки
+
+- `@Model Folder` (`Model/Folder.swift`): uid, name, colorRaw (8 цветов), symbol (8 значков), parentID
+  (nil — верхний уровень, связь без `@Relationship`), sortIndex, createdAt. В `ModelContainer` —
+  в `MysliApp.swift` и `AppModel.sharedContainer`.
+- Правила — `Logic/FolderTree.swift` (тесты `FolderTreeTests`): до 3 уровней, имя уникально среди
+  соседей («ё» = «е», без регистра), нельзя в себя и в подпапку, путь «Проекты / VPN / Реклама».
+  Удаление (`FolderStore.delete`) не теряет записи: записи и подпапки — к родителю (наверху —
+  «Без папки»), совпавшее имя подпапки → «Реклама 2».
+- Экраны: «Идеи»/«Заметки» (`ItemListView`) — раздел «Папки» сверху, ниже записи без папки;
+  папка (`FolderView`) — вложенные папки и её записи. Меню папки (долгое нажатие) и листы —
+  `FolderSection` + `.folderSheets` в `FolderView.swift`; форма и выбор деревом — `FolderEditView.swift`.
+  Папка записи — в карточке записи, «В папку…» в меню строки, в правке карточки ИИ.
+- Поле ввода одно на весь стек (`safeAreaInset` у `NavigationStack` в `RootView`): в открытой
+  папке новые записи ложатся в неё (`ComposerBar.folderID`), с ✨ — если ИИ не выбрал другую.
+- Поиск находит и по имени папки, путь — серым под результатом.
+- Резервная копия версии 2: `BackupItem.folderID`, `BackupFile.folders`; версия 1 читается как раньше.
 
 ## Уведомления
 
@@ -116,7 +135,11 @@ https://claude.ai/code/artifact/42ecb5d0-3680-4a14-96ec-ebeb89d9fcc7
 В ответе кроме `items` — `"changes":[{"op":"done|move|delete|edit","id":…}]` и для вопросов
 `"found":[id…]`. Изменения показываются карточками и применяются только по кнопке
 (`AIService.apply`); через Siri удалять нельзя. Промт также чистит надиктованное от слов-паразитов.
-Проверка на телефоне — 8 фраз + 4 команды (`AIControlCheck.commandCases`).
+Проверка на телефоне — 8 фраз + 4 команды (`AIControlCheck.commandCases`) + 2 про папки (`folderCases`).
+Папки: в промт уходит список `- f1a2b3 | Проекты / VPN` (`AIKnownFolder`, `AIPrompt.folderRules`).
+У идеи/заметки в ответе `"folder":"<id>"` или `null`; «создай папку X» — `"folder_new":"X"` (папку
+создаёт `AIService.save`, такая уже есть — кладёт в неё). Команда «перенеси … в папку X» —
+`{"op":"folder","id":…,"folder":…}`. Незнакомая папка — без папки, дела в папки не кладутся.
 Имя модели: `deepseek-flash` — подтверждено официальной страницей цен DeepSeek
 (api-docs.deepseek.com/quick_start/pricing, проверено 16.10.2026): «Use `deepseek-flash` as the model
 name»; старое `deepseek-v4-flash` тоже принимается и уходит на ту же V4.1 Flash. Модель меняется
@@ -174,6 +197,9 @@ name»; старое `deepseek-v4-flash` тоже принимается и ух
       (см. «Уведомления»), в Настройках — состояние, подсказка и кнопка в настройки iPhone.
       Ждёт проверки на телефоне: дошло ли разрешение через iloader.
 
+- [ ] **Задача #3. Папки** — папки в папках (до 3 уровней) для идей и заметок, ИИ раскладывает
+      сам (см. «Папки» и «DeepSeek»). Ждёт проверки на телефоне.
+
 Этапы 0–3 — до 5 ноября 2026.
 
 ## Как проверять без телефона
@@ -182,7 +208,8 @@ name»; старое `deepseek-v4-flash` тоже принимается и ух
 - Снимки экранов: сборка запускает приложение на виртуальном iPhone с `-demo <экран>`
   (`feed`, `due`, `edit`, `ideas`, `notes`, `settings`, `empty`, `review`, `inbox`, `search`, `listen`, `command`,
   `keyboard`, `editKeyboard`, `searchKeyboard` — с открытой клавиатурой, `urgent` — блок срочных
-  уведомлений в настройках) — база в памяти с примерами
+  уведомлений в настройках, `folders` — «Идеи» с папками, `folder` — внутри «Проекты / VPN») —
+  база в памяти с примерами
   из `DemoData`. Снимки — в ветке `ci-results/screens` и на странице запуска.
 - Новый экран → добавить вариант в `DemoConfig.Screen` и строку `shot` в `build.yml`.
 - Живая проверка 8 фраз на DeepSeek в сборке — только если в GitHub есть секрет
