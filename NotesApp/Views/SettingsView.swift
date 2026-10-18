@@ -66,6 +66,7 @@ struct SettingsView: View {
                     Text("Бесплатная подпись живёт 7 дней. За сутки до конца придёт напоминание переустановить приложение через iloader (Import IPA) — записи сохранятся.")
                 }
             }
+            .keyboardDismissable()
             .navigationTitle("Настройки")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -34,6 +34,7 @@ struct SearchView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .keyboardDismissable()
             .navigationTitle("Поиск")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Слово или #тег")

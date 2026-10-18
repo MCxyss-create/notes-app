@@ -67,6 +67,7 @@ struct RootView: View {
 
                 content
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .keyboardDismissable()
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 ComposerBar(
@@ -245,6 +246,21 @@ struct RootView: View {
             showSettings = true
         case .edit:
             editing = allItems.first { $0.title == DemoData.editTitle }
+        case .keyboard:
+            focusLater()
+        case .editKeyboard:
+            editing = allItems.first { $0.title == DemoData.editTitle }
+            focusLater()
+        case .searchKeyboard:
+            search = SearchRequest(query: "")
+            focusLater()
+        }
+    }
+
+    /// Снимки с клавиатурой: дождаться, пока откроется лист, и поставить курсор в поле.
+    private func focusLater() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            DemoData.focusTopField()
         }
     }
 }

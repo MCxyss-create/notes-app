@@ -352,6 +352,7 @@ struct DraftEditView: View {
                     .textInputAutocapitalization(.never)
             }
         }
+        .keyboardDismissable()
         .navigationTitle("Изменить")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

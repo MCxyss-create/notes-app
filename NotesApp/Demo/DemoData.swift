@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import UIKit
 
 /// Демо-режим для снимков экранов в GitHub: приложение запускается с `-demo <экран>`,
 /// берёт базу в памяти с примерами и сразу открывает нужный экран.
@@ -17,6 +18,10 @@ struct DemoConfig: Equatable {
         case search
         case listen
         case command
+        /// Открытая клавиатура: главный экран, карточка записи, поиск.
+        case keyboard
+        case editKeyboard
+        case searchKeyboard
     }
 
     let screen: Screen
@@ -33,6 +38,34 @@ enum DemoData {
     static let editTitle = "Подойти к учителю"
     /// Что «слышит» микрофон на снимке «Слушаю».
     static let listeningText = "перенеси учителя на понедельник и маме позвонил"
+
+    /// Снимки с клавиатурой: курсор в верхнее поле верхнего экрана (открытого листа, если он есть).
+    @MainActor
+    static func focusTopField() {
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first { $0.isKeyWindow }
+        guard var top = window?.rootViewController else { return }
+        while let presented = top.presentedViewController {
+            top = presented
+        }
+        var fields: [UIView] = []
+        collectFields(in: top.view, into: &fields)
+        let field = fields.min { $0.convert(CGPoint.zero, to: nil).y < $1.convert(CGPoint.zero, to: nil).y }
+        field?.becomeFirstResponder()
+    }
+
+    @MainActor
+    private static func collectFields(in view: UIView, into fields: inout [UIView]) {
+        if view is UITextField || view is UITextView {
+            fields.append(view)
+            return
+        }
+        for sub in view.subviews {
+            collectFields(in: sub, into: &fields)
+        }
+    }
 
     @MainActor
     static func seed(into context: ModelContext, screen: DemoConfig.Screen) {

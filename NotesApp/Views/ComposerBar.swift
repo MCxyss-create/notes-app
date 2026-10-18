@@ -114,6 +114,7 @@ struct ComposerBar: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(.bar)
+        .swipeDownHidesKeyboard()
         .sensoryFeedback(.success, trigger: savedCount)
         .onAppear {
             kind = defaultKind

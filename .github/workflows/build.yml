@@ -169,6 +169,9 @@ jobs:
           shot search 10-poisk
           shot listen 11-slushayu
           shot command 12-komanda
+          shot keyboard 13-klaviatura
+          shot editKeyboard 14-klaviatura-kartochka
+          shot searchKeyboard 15-klaviatura-poisk
           xcrun simctl ui "$SIM" appearance dark || true
           shot feed 8-lenta-temnaya
 

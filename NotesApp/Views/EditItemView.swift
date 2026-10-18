@@ -70,6 +70,7 @@ struct EditItemView: View {
                     }
                 }
             }
+            .keyboardDismissable()
             .navigationTitle(item.kind.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
