@@ -297,7 +297,8 @@ struct ComposerBar: View {
 
     /// Слушать само (при открытии) — только если поле пустое и ничего не открыто поверх.
     private func listenIfIdle() {
-        guard review == nil, !showDue, !working, !dictation.isRecording, trimmed.isEmpty else { return }
+        guard review == nil, !showDue, !working, !dictation.isRecording, trimmed.isEmpty,
+              !AppEnvironment.isRunningTests else { return }
         startDictation()
     }
 
