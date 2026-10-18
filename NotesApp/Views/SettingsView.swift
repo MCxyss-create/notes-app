@@ -5,6 +5,9 @@ import UniformTypeIdentifiers
 import UserNotifications
 
 struct SettingsView: View {
+    /// Демо-снимок: сразу прокрутить к блоку «Чтобы «Мысли» были сверху».
+    var demoUrgent = false
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var context
@@ -27,43 +30,54 @@ struct SettingsView: View {
     @State private var savedKey: String?
     @State private var keyMessage: String?
     @State private var status: UNAuthorizationStatus = .notDetermined
+    @State private var timeSensitive: UNNotificationSetting = .notSupported
     @State private var pending = 0
     @State private var testMessage: String?
 
     var body: some View {
         NavigationStack {
-            Form {
-                aiSection
+            ScrollViewReader { proxy in
+                Form {
+                    aiSection
 
-                voiceSection
+                    voiceSection
 
-                notificationsSection
+                    notificationsSection
 
-                summarySection
+                    urgentSection
 
-                Section {
-                    DatePicker("Время для «завтра»", selection: defaultTime, displayedComponents: .hourAndMinute)
-                    Picker("Напоминать заранее", selection: $defaultBefore) {
-                        ForEach(BeforeOption.all, id: \.minutes) { option in
-                            Text(option.title).tag(option.minutes)
+                    summarySection
+
+                    Section {
+                        DatePicker("Время для «завтра»", selection: defaultTime, displayedComponents: .hourAndMinute)
+                        Picker("Напоминать заранее", selection: $defaultBefore) {
+                            ForEach(BeforeOption.all, id: \.minutes) { option in
+                                Text(option.title).tag(option.minutes)
+                            }
                         }
+                    } header: {
+                        Text("По умолчанию")
+                    } footer: {
+                        Text("Если указан только день, напоминание сработает в это время.")
                     }
-                } header: {
-                    Text("По умолчанию")
-                } footer: {
-                    Text("Если указан только день, напоминание сработает в это время.")
+
+                    backupSection
+
+                    Section {
+                        LabeledContent("Версия", value: AppInfo.versionText)
+                        LabeledContent("Подпись действует до",
+                                       value: ProvisionInfo.expirationDate.map { DateText.short($0) } ?? "нет данных")
+                    } header: {
+                        Text("О приложении")
+                    } footer: {
+                        Text("Бесплатная подпись живёт 7 дней. За сутки до конца придёт напоминание переустановить приложение через iloader (Import IPA) — записи сохранятся.")
+                    }
                 }
-
-                backupSection
-
-                Section {
-                    LabeledContent("Версия", value: AppInfo.versionText)
-                    LabeledContent("Подпись действует до",
-                                   value: ProvisionInfo.expirationDate.map { DateText.short($0) } ?? "нет данных")
-                } header: {
-                    Text("О приложении")
-                } footer: {
-                    Text("Бесплатная подпись живёт 7 дней. За сутки до конца придёт напоминание переустановить приложение через iloader (Import IPA) — записи сохранятся.")
+                .task {
+                    // Снимок «срочных»: блок ниже первого экрана — прокрутить к нему.
+                    guard demoUrgent else { return }
+                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    proxy.scrollTo(Self.urgentAnchor, anchor: .center)
                 }
             }
             .keyboardDismissable()
@@ -197,6 +211,51 @@ struct SettingsView: View {
         }
     }
 
+    private static let urgentAnchor = "urgent"
+
+    /// iOS сам сортирует уведомления по времени. «Срочные» хотя бы пробивают Фокус
+    /// и дольше висят на экране блокировки.
+    private var urgentSection: some View {
+        Section {
+            Text(urgentText)
+                .foregroundStyle(urgentColor)
+                .id(Self.urgentAnchor)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Настройки iPhone → Уведомления → «Мысли»:")
+                Text("• «Срочные уведомления» — вкл")
+                Text("• «Стиль баннеров» → «Постоянно»: баннер висит, пока не смахнёшь")
+                Text("• в режимах Фокуса разрешить срочные уведомления")
+            }
+            .font(.subheadline)
+            .foregroundStyle(Color.secondary)
+            Button("Открыть настройки уведомлений") {
+                if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+        } header: {
+            Text("Чтобы «Мысли» были сверху")
+        } footer: {
+            Text("Закрепить уведомления одного приложения над другими iOS не даёт — они идут по времени. Срочные пробивают Фокус и «Не беспокоить» и дольше держатся на экране блокировки.")
+        }
+    }
+
+    private var urgentText: String {
+        guard status == .authorized || status == .provisional || status == .ephemeral else {
+            return "Срочные: сначала разреши уведомления"
+        }
+        switch timeSensitive {
+        case .enabled: return "Срочные: включены"
+        case .disabled: return "Срочные: выключены — включи в настройках iPhone"
+        case .notSupported: return "Срочные: недоступны — бесплатная подпись не дала разрешение"
+        @unknown default: return "Срочные: —"
+        }
+    }
+
+    private var urgentColor: Color {
+        timeSensitive == .enabled && status == .authorized ? .green : .orange
+    }
+
     private var backupSection: some View {
         Section {
             Button("Сохранить копию в «Файлы»") {
@@ -327,6 +386,7 @@ struct SettingsView: View {
     private func refresh() async {
         savedKey = AISettings.apiKey
         status = await NotificationService.shared.status()
+        timeSensitive = await NotificationService.shared.timeSensitive()
         pending = await NotificationService.shared.pendingCount()
     }
 

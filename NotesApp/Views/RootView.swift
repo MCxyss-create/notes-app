@@ -100,7 +100,7 @@ struct RootView: View {
                 }
             }
             .sheet(isPresented: $showSettings, onDismiss: reschedule) {
-                SettingsView()
+                SettingsView(demoUrgent: demo?.screen == .urgent)
             }
             .sheet(item: $editing) { item in
                 EditItemView(item: item)
@@ -242,7 +242,7 @@ struct RootView: View {
             page = .ideas
         case .notes:
             page = .notes
-        case .settings:
+        case .settings, .urgent:
             showSettings = true
         case .edit:
             editing = allItems.first { $0.title == DemoData.editTitle }

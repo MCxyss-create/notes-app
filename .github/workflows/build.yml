@@ -67,6 +67,15 @@ jobs:
           fi
           mkdir -p out/Payload
           cp -R "$APP" out/Payload/
+          # Сборка без подписи — разрешения (entitlements) внутрь не попадают. Подписываем ad-hoc
+          # с ними, чтобы iloader видел «срочные» уведомления; iloader потом переподписывает своим.
+          codesign --force --sign - --entitlements NotesApp/NotesApp.entitlements out/Payload/NotesApp.app
+          codesign -d --entitlements :- out/Payload/NotesApp.app > ci/entitlements.txt 2>&1 || true
+          if grep -q "time-sensitive" ci/entitlements.txt; then
+            echo "Разрешение «Срочные уведомления» внутри .ipa"
+          else
+            echo "::warning::В .ipa нет разрешения time-sensitive — смотри ci/entitlements.txt"
+          fi
           (cd out && zip -qry NotesApp.ipa Payload)
           # Команды для Siri и Кнопки действия: без этой папки iOS их не увидит.
           if [ -d "$APP/Metadata.appintents" ]; then
@@ -172,6 +181,7 @@ jobs:
           shot keyboard 13-klaviatura
           shot editKeyboard 14-klaviatura-kartochka
           shot searchKeyboard 15-klaviatura-poisk
+          shot urgent 16-srochnye
           xcrun simctl ui "$SIM" appearance dark || true
           shot feed 8-lenta-temnaya
 

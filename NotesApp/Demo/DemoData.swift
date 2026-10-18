@@ -22,6 +22,8 @@ struct DemoConfig: Equatable {
         case keyboard
         case editKeyboard
         case searchKeyboard
+        /// Настройки, блок «Чтобы «Мысли» были сверху» (срочные уведомления).
+        case urgent
     }
 
     let screen: Screen
