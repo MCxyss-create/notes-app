@@ -1,0 +1,338 @@
+Command line invocation:
+    /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project NotesApp.xcodeproj -scheme NotesApp -configuration Debug -destination id=E839A11B-51B4-4AD3-ACF4-A53B95B7C957 -derivedDataPath build-sim
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:iOS Simulator, arch:arm64, id:E839A11B-51B4-4AD3-ACF4-A53B95B7C957, OS:26.5, name:iPhone 17 Pro }
+{ platform:iOS Simulator, arch:x86_64, id:E839A11B-51B4-4AD3-ACF4-A53B95B7C957, OS:26.5, name:iPhone 17 Pro }
+Test Suite 'All tests' started at 2026-10-19 15:31:00.643.
+Test Suite 'NotesAppTests.xctest' started at 2026-10-19 15:31:00.646.
+Test Suite 'AIControlCheckTests' started at 2026-10-19 15:31:00.647.
+Test Case '-[NotesAppTests.AIControlCheckTests testIdealAnswersPassAllEight]' started.
+Test Case '-[NotesAppTests.AIControlCheckTests testIdealAnswersPassAllEight]' passed (0.008 seconds).
+Test Case '-[NotesAppTests.AIControlCheckTests testOrderDoesNotMatter]' started.
+Test Case '-[NotesAppTests.AIControlCheckTests testOrderDoesNotMatter]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.AIControlCheckTests testWrongAnswersFail]' started.
+Test Case '-[NotesAppTests.AIControlCheckTests testWrongAnswersFail]' passed (0.004 seconds).
+Test Suite 'AIControlCheckTests' passed at 2026-10-19 15:31:00.662.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.013 (0.015) seconds
+Test Suite 'AILiveCheckTests' started at 2026-10-19 15:31:00.753.
+Test Case '-[NotesAppTests.AILiveCheckTests testControlPhrasesWithDeepSeek]' started.
+/Users/runner/work/notes-app/notes-app/NotesAppTests/AILiveCheckTests.swift:10: -[NotesAppTests.AILiveCheckTests testControlPhrasesWithDeepSeek] : Test skipped - Нет секрета DEEPSEEK_API_KEY — живая проверка пропущена
+Test Case '-[NotesAppTests.AILiveCheckTests testControlPhrasesWithDeepSeek]' skipped (0.029 seconds).
+Test Suite 'AILiveCheckTests' passed at 2026-10-19 15:31:00.782.
+	 Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.029 (0.030) seconds
+Test Suite 'AIParserTests' started at 2026-10-19 15:31:00.782.
+Test Case '-[NotesAppTests.AIParserTests testCodeFenceAndDateWithoutZone]' started.
+Test Case '-[NotesAppTests.AIParserTests testCodeFenceAndDateWithoutZone]' passed (0.003 seconds).
+Test Case '-[NotesAppTests.AIParserTests testDayOnlyGetsDefaultTime]' started.
+Test Case '-[NotesAppTests.AIParserTests testDayOnlyGetsDefaultTime]' passed (0.008 seconds).
+Test Case '-[NotesAppTests.AIParserTests testEmptyTitle]' started.
+Test Case '-[NotesAppTests.AIParserTests testEmptyTitle]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.AIParserTests testInboxPhraseParsedLater]' started.
+Test Case '-[NotesAppTests.AIParserTests testInboxPhraseParsedLater]' passed (0.003 seconds).
+Test Case '-[NotesAppTests.AIParserTests testKinds]' started.
+Test Case '-[NotesAppTests.AIParserTests testKinds]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.AIParserTests testNotJSONThrows]' started.
+Test Case '-[NotesAppTests.AIParserTests testNotJSONThrows]' passed (0.004 seconds).
+Test Case '-[NotesAppTests.AIParserTests testOldDateKeptWithWarning]' started.
+Test Case '-[NotesAppTests.AIParserTests testOldDateKeptWithWarning]' passed (0.004 seconds).
+Test Case '-[NotesAppTests.AIParserTests testPassedTimeMovesToNextDay]' started.
+Test Case '-[NotesAppTests.AIParserTests testPassedTimeMovesToNextDay]' passed (0.004 seconds).
+Test Case '-[NotesAppTests.AIParserTests testPastRepeatMovesToNextTime]' started.
+Test Case '-[NotesAppTests.AIParserTests testPastRepeatMovesToNextTime]' passed (0.004 seconds).
+Test Case '-[NotesAppTests.AIParserTests testRemindBefore]' started.
+Test Case '-[NotesAppTests.AIParserTests testRemindBefore]' passed (0.005 seconds).
+Test Case '-[NotesAppTests.AIParserTests testSampleFromPlan]' started.
+Test Case '-[NotesAppTests.AIParserTests testSampleFromPlan]' passed (0.004 seconds).
+Test Case '-[NotesAppTests.AIParserTests testTagsCleaned]' started.
+Test Case '-[NotesAppTests.AIParserTests testTagsCleaned]' passed (0.001 seconds).
+Test Suite 'AIParserTests' passed at 2026-10-19 15:31:04.086.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.046 (3.303) seconds
+Test Suite 'AIPromptAndClientTests' started at 2026-10-19 15:31:04.086.
+Test Case '-[NotesAppTests.AIPromptAndClientTests testContentAndErrorFromResponse]' started.
+Test Case '-[NotesAppTests.AIPromptAndClientTests testContentAndErrorFromResponse]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.AIPromptAndClientTests testEndpointFromSettings]' started.
+Test Case '-[NotesAppTests.AIPromptAndClientTests testEndpointFromSettings]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.AIPromptAndClientTests testErrorMessages]' started.
+Test Case '-[NotesAppTests.AIPromptAndClientTests testErrorMessages]' passed (0.004 seconds).
+Test Case '-[NotesAppTests.AIPromptAndClientTests testPromptHasNowZoneAndDefaults]' started.
+Test Case '-[NotesAppTests.AIPromptAndClientTests testPromptHasNowZoneAndDefaults]' passed (0.229 seconds).
+Test Case '-[NotesAppTests.AIPromptAndClientTests testRequestBody]' started.
+Test Case '-[NotesAppTests.AIPromptAndClientTests testRequestBody]' passed (0.001 seconds).
+Test Suite 'AIPromptAndClientTests' passed at 2026-10-19 15:31:04.328.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.238 (0.241) seconds
+Test Suite 'BackupAndSearchTests' started at 2026-10-19 15:31:04.328.
+Test Case '-[NotesAppTests.BackupAndSearchTests testBackupRoundTrip]' started.
+Test Case '-[NotesAppTests.BackupAndSearchTests testBackupRoundTrip]' passed (0.006 seconds).
+Test Case '-[NotesAppTests.BackupAndSearchTests testBadFileThrows]' started.
+Test Case '-[NotesAppTests.BackupAndSearchTests testBadFileThrows]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.BackupAndSearchTests testImportSkipsExisting]' started.
+Test Case '-[NotesAppTests.BackupAndSearchTests testImportSkipsExisting]' passed (0.003 seconds).
+Test Case '-[NotesAppTests.BackupAndSearchTests testSearchByWordsAndTags]' started.
+Test Case '-[NotesAppTests.BackupAndSearchTests testSearchByWordsAndTags]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.BackupAndSearchTests testSearchIgnoresYo]' started.
+Test Case '-[NotesAppTests.BackupAndSearchTests testSearchIgnoresYo]' passed (0.001 seconds).
+Test Suite 'BackupAndSearchTests' passed at 2026-10-19 15:31:04.568.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.011 (0.240) seconds
+Test Suite 'CalendarAIAndBackupTests' started at 2026-10-19 15:31:04.569.
+Test Case '-[NotesAppTests.CalendarAIAndBackupTests testAnniversaryWithYear]' started.
+Test Case '-[NotesAppTests.CalendarAIAndBackupTests testAnniversaryWithYear]' passed (0.431 seconds).
+Test Case '-[NotesAppTests.CalendarAIAndBackupTests testBackupWithEvents]' started.
+Test Case '-[NotesAppTests.CalendarAIAndBackupTests testBackupWithEvents]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.CalendarAIAndBackupTests testBadEventsAreDropped]' started.
+Test Case '-[NotesAppTests.CalendarAIAndBackupTests testBadEventsAreDropped]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.CalendarAIAndBackupTests testBirthdayEvent]' started.
+Test Case '-[NotesAppTests.CalendarAIAndBackupTests testBirthdayEvent]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.CalendarAIAndBackupTests testOldBackupWithoutEvents]' started.
+Test Case '-[NotesAppTests.CalendarAIAndBackupTests testOldBackupWithoutEvents]' passed (0.000 seconds).
+Test Case '-[NotesAppTests.CalendarAIAndBackupTests testPromptDescribesEvents]' started.
+Test Case '-[NotesAppTests.CalendarAIAndBackupTests testPromptDescribesEvents]' passed (0.015 seconds).
+Test Case '-[NotesAppTests.CalendarAIAndBackupTests testSiriTextForEvent]' started.
+Test Case '-[NotesAppTests.CalendarAIAndBackupTests testSiriTextForEvent]' passed (0.003 seconds).
+Test Suite 'CalendarAIAndBackupTests' passed at 2026-10-19 15:31:05.290.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.453 (0.722) seconds
+Test Suite 'CalendarTests' started at 2026-10-19 15:31:05.291.
+Test Case '-[NotesAppTests.CalendarTests testAgeTexts]' started.
+Test Case '-[NotesAppTests.CalendarTests testAgeTexts]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.CalendarTests testCalendarLimitAndTotal]' started.
+Test Case '-[NotesAppTests.CalendarTests testCalendarLimitAndTotal]' passed (0.281 seconds).
+Test Case '-[NotesAppTests.CalendarTests testContactImportDecisions]' started.
+Test Case '-[NotesAppTests.CalendarTests testContactImportDecisions]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.CalendarTests testContactToBirthday]' started.
+Test Case '-[NotesAppTests.CalendarTests testContactToBirthday]' passed (0.000 seconds).
+Test Case '-[NotesAppTests.CalendarTests testHolidaysOnlyWhenRemindersOn]' started.
+Test Case '-[NotesAppTests.CalendarTests testHolidaysOnlyWhenRemindersOn]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.CalendarTests testLeapDay]' started.
+Test Case '-[NotesAppTests.CalendarTests testLeapDay]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.CalendarTests testMonthGridStartsOnMonday]' started.
+Test Case '-[NotesAppTests.CalendarTests testMonthGridStartsOnMonday]' passed (0.234 seconds).
+Test Case '-[NotesAppTests.CalendarTests testMorningSummaryMentionsOccasions]' started.
+Test Case '-[NotesAppTests.CalendarTests testMorningSummaryMentionsOccasions]' passed (0.006 seconds).
+Test Case '-[NotesAppTests.CalendarTests testNextDateTodayAndYearRollover]' started.
+Test Case '-[NotesAppTests.CalendarTests testNextDateTodayAndYearRollover]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.CalendarTests testPlannerTextsAndDaysBefore]' started.
+Test Case '-[NotesAppTests.CalendarTests testPlannerTextsAndDaysBefore]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.CalendarTests testRussianHolidays]' started.
+Test Case '-[NotesAppTests.CalendarTests testRussianHolidays]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.CalendarTests testUpcomingAndWhenText]' started.
+Test Case '-[NotesAppTests.CalendarTests testUpcomingAndWhenText]' passed (0.330 seconds).
+Test Suite 'CalendarTests' passed at 2026-10-19 15:31:06.151.
+	 Executed 12 tests, with 0 failures (0 unexpected) in 0.858 (0.861) seconds
+Test Suite 'DateMathTests' started at 2026-10-19 15:31:06.152.
+Test Case '-[NotesAppTests.DateMathTests testEveningIsTodayBefore19]' started.
+Test Case '-[NotesAppTests.DateMathTests testEveningIsTodayBefore19]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.DateMathTests testEveningIsTomorrowAfter19]' started.
+Test Case '-[NotesAppTests.DateMathTests testEveningIsTomorrowAfter19]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.DateMathTests testInOneHourDropsSecondsAndCrossesMidnight]' started.
+Test Case '-[NotesAppTests.DateMathTests testInOneHourDropsSecondsAndCrossesMidnight]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.DateMathTests testSnoozeHour]' started.
+Test Case '-[NotesAppTests.DateMathTests testSnoozeHour]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.DateMathTests testSnoozeTomorrowKeepsGivenTime]' started.
+Test Case '-[NotesAppTests.DateMathTests testSnoozeTomorrowKeepsGivenTime]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.DateMathTests testSnoozeTomorrowUsesDefaultTime]' started.
+Test Case '-[NotesAppTests.DateMathTests testSnoozeTomorrowUsesDefaultTime]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.DateMathTests testTomorrowMorning]' started.
+Test Case '-[NotesAppTests.DateMathTests testTomorrowMorning]' passed (0.001 seconds).
+Test Suite 'DateMathTests' passed at 2026-10-19 15:31:06.350.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.008 (0.198) seconds
+Test Suite 'FeedGroupingTests' started at 2026-10-19 15:31:06.833.
+Test Case '-[NotesAppTests.FeedGroupingTests testEachReminderLandsInItsSection]' started.
+Test Case '-[NotesAppTests.FeedGroupingTests testEachReminderLandsInItsSection]' passed (0.003 seconds).
+Test Case '-[NotesAppTests.FeedGroupingTests testEmptySectionsSkippedAndSortedByTime]' started.
+Test Case '-[NotesAppTests.FeedGroupingTests testEmptySectionsSkippedAndSortedByTime]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.FeedGroupingTests testPassedTodayIsOverdue]' started.
+Test Case '-[NotesAppTests.FeedGroupingTests testPassedTodayIsOverdue]' passed (0.001 seconds).
+Test Suite 'FeedGroupingTests' passed at 2026-10-19 15:31:06.840.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.005 (0.007) seconds
+Test Suite 'FolderAIAndBackupTests' started at 2026-10-19 15:31:06.840.
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testBackupVersion1StillReads]' started.
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testBackupVersion1StillReads]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testBackupVersion2WithFolders]' started.
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testBackupVersion2WithFolders]' passed (0.003 seconds).
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testControlFolderCasesCatchMistakes]' started.
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testControlFolderCasesCatchMistakes]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testDraftGoesToKnownFolder]' started.
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testDraftGoesToKnownFolder]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testFolderCommand]' started.
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testFolderCommand]' passed (0.056 seconds).
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testKnownFoldersFromTree]' started.
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testKnownFoldersFromTree]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testNewFolderOnlyWhenMissing]' started.
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testNewFolderOnlyWhenMissing]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testPromptListsFolders]' started.
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testPromptListsFolders]' passed (0.010 seconds).
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testSearchByFolderName]' started.
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testSearchByFolderName]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testUnknownFolderAndRemindersStayOut]' started.
+Test Case '-[NotesAppTests.FolderAIAndBackupTests testUnknownFolderAndRemindersStayOut]' passed (0.001 seconds).
+Test Suite 'FolderAIAndBackupTests' passed at 2026-10-19 15:31:07.053.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.077 (0.213) seconds
+Test Suite 'FolderTreeTests' started at 2026-10-19 15:31:07.053.
+Test Case '-[NotesAppTests.FolderTreeTests testBrokenCycleDoesNotHang]' started.
+Test Case '-[NotesAppTests.FolderTreeTests testBrokenCycleDoesNotHang]' passed (0.012 seconds).
+Test Case '-[NotesAppTests.FolderTreeTests testCountsIncludeNestedAndLooseItems]' started.
+Test Case '-[NotesAppTests.FolderTreeTests testCountsIncludeNestedAndLooseItems]' passed (0.006 seconds).
+Test Case '-[NotesAppTests.FolderTreeTests testMaxThreeLevels]' started.
+Test Case '-[NotesAppTests.FolderTreeTests testMaxThreeLevels]' passed (0.028 seconds).
+Test Case '-[NotesAppTests.FolderTreeTests testNoCycles]' started.
+Test Case '-[NotesAppTests.FolderTreeTests testNoCycles]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.FolderTreeTests testPathAndDepth]' started.
+Test Case '-[NotesAppTests.FolderTreeTests testPathAndDepth]' passed (0.000 seconds).
+Test Case '-[NotesAppTests.FolderTreeTests testRemovalMovesEverythingToParent]' started.
+Test Case '-[NotesAppTests.FolderTreeTests testRemovalMovesEverythingToParent]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.FolderTreeTests testTreeLinesInOrder]' started.
+Test Case '-[NotesAppTests.FolderTreeTests testTreeLinesInOrder]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.FolderTreeTests testUniqueNamesAmongSiblings]' started.
+Test Case '-[NotesAppTests.FolderTreeTests testUniqueNamesAmongSiblings]' passed (0.244 seconds).
+Test Suite 'FolderTreeTests' passed at 2026-10-19 15:31:07.349.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.292 (0.296) seconds
+Test Suite 'NotificationLevelTests' started at 2026-10-19 15:31:07.349.
+Test Case '-[NotesAppTests.NotificationLevelTests testItemsResignAndTestAreTimeSensitive]' started.
+Test Case '-[NotesAppTests.NotificationLevelTests testItemsResignAndTestAreTimeSensitive]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.NotificationLevelTests testPlannersIDs]' started.
+Test Case '-[NotesAppTests.NotificationLevelTests testPlannersIDs]' passed (0.004 seconds).
+Test Case '-[NotesAppTests.NotificationLevelTests testSummariesStayActive]' started.
+Test Case '-[NotesAppTests.NotificationLevelTests testSummariesStayActive]' passed (0.001 seconds).
+Test Suite 'NotificationLevelTests' passed at 2026-10-19 15:31:07.375.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.006 (0.025) seconds
+Test Suite 'NotificationPlannerTests' started at 2026-10-19 15:31:07.375.
+Test Case '-[NotesAppTests.NotificationPlannerTests testBeforeText]' started.
+Test Case '-[NotesAppTests.NotificationPlannerTests testBeforeText]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.NotificationPlannerTests testDailyRepeatSchedulesNextDays]' started.
+Test Case '-[NotesAppTests.NotificationPlannerTests testDailyRepeatSchedulesNextDays]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.NotificationPlannerTests testDueAndEarlyNotifications]' started.
+Test Case '-[NotesAppTests.NotificationPlannerTests testDueAndEarlyNotifications]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.NotificationPlannerTests testEarlySkippedWhenAlreadyPassed]' started.
+Test Case '-[NotesAppTests.NotificationPlannerTests testEarlySkippedWhenAlreadyPassed]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.NotificationPlannerTests testFarReminderIsScheduled]' started.
+Test Case '-[NotesAppTests.NotificationPlannerTests testFarReminderIsScheduled]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.NotificationPlannerTests testIdsAreStable]' started.
+Test Case '-[NotesAppTests.NotificationPlannerTests testIdsAreStable]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.NotificationPlannerTests testLimitKeepsNearest]' started.
+Test Case '-[NotesAppTests.NotificationPlannerTests testLimitKeepsNearest]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.NotificationPlannerTests testNotificationsCarryItemID]' started.
+Test Case '-[NotesAppTests.NotificationPlannerTests testNotificationsCarryItemID]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.NotificationPlannerTests testSkipsDonePastAndUndated]' started.
+Test Case '-[NotesAppTests.NotificationPlannerTests testSkipsDonePastAndUndated]' passed (0.003 seconds).
+Test Suite 'NotificationPlannerTests' passed at 2026-10-19 15:31:07.434.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.012 (0.060) seconds
+Test Suite 'PhotoTests' started at 2026-10-19 15:31:07.435.
+Test Case '-[NotesAppTests.PhotoTests testBackupWithPhotosRoundTrip]' started.
+Test Case '-[NotesAppTests.PhotoTests testBackupWithPhotosRoundTrip]' passed (0.004 seconds).
+Test Case '-[NotesAppTests.PhotoTests testDeletingItemDeletesPhotosAndOrphansAreRemoved]' started.
+Test Case '-[NotesAppTests.PhotoTests testDeletingItemDeletesPhotosAndOrphansAreRemoved]' passed (0.081 seconds).
+Test Case '-[NotesAppTests.PhotoTests testFittedSizes]' started.
+Test Case '-[NotesAppTests.PhotoTests testFittedSizes]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.PhotoTests testLimitAndTexts]' started.
+Test Case '-[NotesAppTests.PhotoTests testLimitAndTexts]' passed (0.000 seconds).
+Test Case '-[NotesAppTests.PhotoTests testNoMoreThanTenPerItem]' started.
+Test Case '-[NotesAppTests.PhotoTests testNoMoreThanTenPerItem]' passed (0.008 seconds).
+Test Case '-[NotesAppTests.PhotoTests testOldBackupWithoutPhotos]' started.
+Test Case '-[NotesAppTests.PhotoTests testOldBackupWithoutPhotos]' passed (0.000 seconds).
+Test Case '-[NotesAppTests.PhotoTests testPrepareShrinksAndMakesThumb]' started.
+Test Case '-[NotesAppTests.PhotoTests testPrepareShrinksAndMakesThumb]' passed (0.203 seconds).
+Test Suite 'PhotoTests' passed at 2026-10-19 15:31:08.122.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.297 (0.687) seconds
+Test Suite 'QuickCaptureTextTests' started at 2026-10-19 15:31:08.122.
+Test Case '-[NotesAppTests.QuickCaptureTextTests testReplyFromAIWins]' started.
+Test Case '-[NotesAppTests.QuickCaptureTextTests testReplyFromAIWins]' passed (0.514 seconds).
+Test Case '-[NotesAppTests.QuickCaptureTextTests testSeveralAndNotes]' started.
+Test Case '-[NotesAppTests.QuickCaptureTextTests testSeveralAndNotes]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.QuickCaptureTextTests testSingleReminderWithoutReply]' started.
+Test Case '-[NotesAppTests.QuickCaptureTextTests testSingleReminderWithoutReply]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.QuickCaptureTextTests testTodayText]' started.
+Test Case '-[NotesAppTests.QuickCaptureTextTests testTodayText]' passed (0.002 seconds).
+Test Suite 'QuickCaptureTextTests' passed at 2026-10-19 15:31:08.643.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.519 (0.521) seconds
+Test Suite 'RepeatMathTests' started at 2026-10-19 15:31:08.643.
+Test Case '-[NotesAppTests.RepeatMathTests testMonthlyKeepsDayOfMonth]' started.
+Test Case '-[NotesAppTests.RepeatMathTests testMonthlyKeepsDayOfMonth]' passed (0.220 seconds).
+Test Case '-[NotesAppTests.RepeatMathTests testNextAfterOverdueWeekly]' started.
+Test Case '-[NotesAppTests.RepeatMathTests testNextAfterOverdueWeekly]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.RepeatMathTests testNextWhenDoneEarly]' started.
+Test Case '-[NotesAppTests.RepeatMathTests testNextWhenDoneEarly]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.RepeatMathTests testNonRepeatingOnlyWhenInFuture]' started.
+Test Case '-[NotesAppTests.RepeatMathTests testNonRepeatingOnlyWhenInFuture]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.RepeatMathTests testUpcomingSkipsPast]' started.
+Test Case '-[NotesAppTests.RepeatMathTests testUpcomingSkipsPast]' passed (0.001 seconds).
+Test Suite 'RepeatMathTests' passed at 2026-10-19 15:31:09.121.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.225 (0.478) seconds
+Test Suite 'ResignPlannerTests' started at 2026-10-19 15:31:09.122.
+Test Case '-[NotesAppTests.ResignPlannerTests testBannerInLastTwoDays]' started.
+Test Case '-[NotesAppTests.ResignPlannerTests testBannerInLastTwoDays]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.ResignPlannerTests testLateStillRemindsTwoHoursBefore]' started.
+Test Case '-[NotesAppTests.ResignPlannerTests testLateStillRemindsTwoHoursBefore]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.ResignPlannerTests testNothingWithoutProfileOrWhenExpired]' started.
+Test Case '-[NotesAppTests.ResignPlannerTests testNothingWithoutProfileOrWhenExpired]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.ResignPlannerTests testReadsExpirationFromProfile]' started.
+Test Case '-[NotesAppTests.ResignPlannerTests testReadsExpirationFromProfile]' passed (0.389 seconds).
+Test Case '-[NotesAppTests.ResignPlannerTests testRemindsADayBefore]' started.
+Test Case '-[NotesAppTests.ResignPlannerTests testRemindsADayBefore]' passed (0.002 seconds).
+Test Suite 'ResignPlannerTests' passed at 2026-10-19 15:31:09.520.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.395 (0.398) seconds
+Test Suite 'SummaryPlannerTests' started at 2026-10-19 15:31:09.520.
+Test Case '-[NotesAppTests.SummaryPlannerTests testLongListIsShortened]' started.
+Test Case '-[NotesAppTests.SummaryPlannerTests testLongListIsShortened]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.SummaryPlannerTests testMorningAndEveningForNextDays]' started.
+Test Case '-[NotesAppTests.SummaryPlannerTests testMorningAndEveningForNextDays]' passed (0.020 seconds).
+Test Case '-[NotesAppTests.SummaryPlannerTests testMorningCountsOverdue]' started.
+Test Case '-[NotesAppTests.SummaryPlannerTests testMorningCountsOverdue]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.SummaryPlannerTests testNothingWithoutTasksOrWhenOff]' started.
+Test Case '-[NotesAppTests.SummaryPlannerTests testNothingWithoutTasksOrWhenOff]' passed (0.001 seconds).
+Test Suite 'SummaryPlannerTests' passed at 2026-10-19 15:31:09.682.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.025 (0.162) seconds
+Test Suite 'TagTextTests' started at 2026-10-19 15:31:09.682.
+Test Case '-[NotesAppTests.TagTextTests testDisplay]' started.
+Test Case '-[NotesAppTests.TagTextTests testDisplay]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.TagTextTests testParseCleansAndDeduplicates]' started.
+Test Case '-[NotesAppTests.TagTextTests testParseCleansAndDeduplicates]' passed (0.001 seconds).
+Test Suite 'TagTextTests' passed at 2026-10-19 15:31:09.685.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'VoiceCommandTests' started at 2026-10-19 15:31:09.685.
+Test Case '-[NotesAppTests.VoiceCommandTests testDoneDeleteAndEdit]' started.
+Test Case '-[NotesAppTests.VoiceCommandTests testDoneDeleteAndEdit]' passed (0.004 seconds).
+Test Case '-[NotesAppTests.VoiceCommandTests testFourControlCommands]' started.
+Test Case '-[NotesAppTests.VoiceCommandTests testFourControlCommands]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.VoiceCommandTests testMoveChecks]' started.
+Test Case '-[NotesAppTests.VoiceCommandTests testMoveChecks]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.VoiceCommandTests testMoveToDayKeepsOldTime]' started.
+Test Case '-[NotesAppTests.VoiceCommandTests testMoveToDayKeepsOldTime]' passed (0.192 seconds).
+Test Case '-[NotesAppTests.VoiceCommandTests testOldFormatAndNoKnownItems]' started.
+Test Case '-[NotesAppTests.VoiceCommandTests testOldFormatAndNoKnownItems]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.VoiceCommandTests testPromptListsRecordsOnlyWhenTheyExist]' started.
+Test Case '-[NotesAppTests.VoiceCommandTests testPromptListsRecordsOnlyWhenTheyExist]' passed (0.005 seconds).
+Test Case '-[NotesAppTests.VoiceCommandTests testPromptPicksNearestOpenRecords]' started.
+Test Case '-[NotesAppTests.VoiceCommandTests testPromptPicksNearestOpenRecords]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.VoiceCommandTests testQuestionAnswer]' started.
+Test Case '-[NotesAppTests.VoiceCommandTests testQuestionAnswer]' passed (0.002 seconds).
+Test Case '-[NotesAppTests.VoiceCommandTests testRefIsStableUIDPrefix]' started.
+Test Case '-[NotesAppTests.VoiceCommandTests testRefIsStableUIDPrefix]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.VoiceCommandTests testSiriTextAfterCommands]' started.
+Test Case '-[NotesAppTests.VoiceCommandTests testSiriTextAfterCommands]' passed (0.001 seconds).
+Test Suite 'VoiceCommandTests' passed at 2026-10-19 15:31:10.034.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.212 (0.349) seconds
+Test Suite 'VoicePauseTests' started at 2026-10-19 15:31:10.034.
+Test Case '-[NotesAppTests.VoicePauseTests testGivesUpWhenNothingSaid]' started.
+Test Case '-[NotesAppTests.VoicePauseTests testGivesUpWhenNothingSaid]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.VoicePauseTests testLevel]' started.
+Test Case '-[NotesAppTests.VoicePauseTests testLevel]' passed (0.662 seconds).
+Test Case '-[NotesAppTests.VoicePauseTests testLongestRecordingSends]' started.
+Test Case '-[NotesAppTests.VoicePauseTests testLongestRecordingSends]' passed (0.001 seconds).
+Test Case '-[NotesAppTests.VoicePauseTests testSendsAfterPauseInSpeech]' started.
+Test Case '-[NotesAppTests.VoicePauseTests testSendsAfterPauseInSpeech]' passed (0.000 seconds).
+Test Suite 'VoicePauseTests' passed at 2026-10-19 15:31:10.700.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.664 (0.666) seconds
+Test Suite 'NotesAppTests.xctest' passed at 2026-10-19 15:31:10.700.
+	 Executed 126 tests, with 1 test skipped and 0 failures (0 unexpected) in 4.388 (10.054) seconds
+Test Suite 'All tests' passed at 2026-10-19 15:31:10.701.
+	 Executed 126 tests, with 1 test skipped and 0 failures (0 unexpected) in 4.388 (10.057) seconds
+2026-10-19 15:31:16.422 xcodebuild[21386:61410] [MT] IDETestOperationsObserverDebug: 113.870 elapsed -- Testing started completed.
+2026-10-19 15:31:16.430 xcodebuild[21386:61410] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-19 15:31:16.430 xcodebuild[21386:61410] [MT] IDETestOperationsObserverDebug: 113.870 sec, +113.870 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/runner/work/notes-app/notes-app/build-sim/Logs/Test/Test-NotesApp-2026.10.19_15-29-08-+0000.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

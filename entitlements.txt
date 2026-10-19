@@ -1,0 +1,3 @@
+Executable=/Users/runner/work/notes-app/notes-app/out/Payload/NotesApp.app/NotesApp
+warning: Specifying ':' in the path is deprecated and will not work in a future release
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>com.apple.developer.usernotifications.time-sensitive</key><true/></dict></plist>

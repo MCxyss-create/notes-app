@@ -1,0 +1,8 @@
+Metadata.appintents есть:
+total 32
+drwxr-xr-x  6 runner  staff   192 Oct 19 15:19 .
+drwxr-xr-x  9 runner  staff   288 Oct 19 15:19 ..
+-rw-r--r--  1 runner  staff  5422 Oct 19 15:19 extract.actionsdata
+drwxr-xr-x  4 runner  staff   128 Oct 19 15:19 nlu
+-rw-r--r--  1 runner  staff  1699 Oct 19 15:19 root.ssu.yaml
+-rw-r--r--  1 runner  staff    52 Oct 19 15:19 version.json
