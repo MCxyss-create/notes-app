@@ -30,6 +30,10 @@ struct ComposerBar: View {
     @State private var reviewPhrase: String?
     @State private var reviewSaved = false
     @State private var textBeforeDictation = ""
+    /// Фото к новой записи: видны полоской над полем, прикрепляются при сохранении.
+    @State private var photos: [PreparedPhoto] = []
+    @State private var showLibrary = false
+    @State private var showCamera = false
     @StateObject private var dictation = Dictation()
     @ObservedObject private var launch = QuickLaunch.shared
     @FocusState private var focused: Bool
@@ -72,8 +76,13 @@ struct ComposerBar: View {
                 }
             }
 
+            if !photos.isEmpty {
+                photoStrip
+            }
+
             HStack(alignment: .bottom, spacing: 8) {
                 aiButton
+                photoButton
 
                 TextField(placeholder, text: $text, axis: .vertical)
                     .lineLimit(1...5)
@@ -172,12 +181,17 @@ struct ComposerBar: View {
             DueDateSheet(selection: $due, timeGiven: $timeGiven)
         }
         .sheet(item: $review, onDismiss: reviewClosed) { r in
-            AIReviewView(review: r) { drafts, changes in
-                AIService.save(drafts, phrase: r.phrase, context: context)
+            AIReviewView(review: r) { drafts, changes, photoDraft in
+                let saved = AIService.save(drafts, phrase: r.phrase, context: context)
                 AIService.apply(changes, context: context)
+                attach(r.photos, to: photoDraft, drafts: drafts, saved: saved)
                 reviewSaved = true
                 savedCount += 1
             }
+        }
+        .photoPickers(library: $showLibrary, camera: $showCamera,
+                      limit: PhotoMath.remaining(current: photos.count)) { added in
+            photos += added.prefix(PhotoMath.remaining(current: photos.count))
         }
     }
 
@@ -236,6 +250,60 @@ struct ComposerBar: View {
         .buttonStyle(.plain)
         .padding(.bottom, 3)
         .accessibilityLabel(aiOn ? "Разбор через ИИ включён" : "Разбор через ИИ выключен")
+    }
+
+    /// 📷 рядом с ✨: из галереи или с камеры.
+    private var photoButton: some View {
+        Menu {
+            PhotoAddButtons(showLibrary: $showLibrary, showCamera: $showCamera)
+        } label: {
+            Image(systemName: "camera")
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: 34, height: 34)
+                .foregroundStyle(photos.isEmpty ? Color.secondary : Color.white)
+                .background(photos.isEmpty ? Color(.tertiarySystemFill) : Color.accentColor, in: Circle())
+        }
+        .disabled(photos.count >= PhotoMath.limit)
+        .padding(.bottom, 3)
+        .accessibilityLabel("Добавить фото")
+    }
+
+    /// Выбранные фото — маленькие миниатюры с крестиком.
+    private var photoStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(photos) { photo in
+                    PhotoThumb(data: photo.thumb, size: 52, corner: 8)
+                        .overlay(alignment: .topTrailing) {
+                            Button {
+                                photos.removeAll { $0.id == photo.id }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 18))
+                                    .symbolRenderingMode(.palette)
+                                    .foregroundStyle(Color.white, Color.black.opacity(0.6))
+                            }
+                            .buttonStyle(.plain)
+                            .offset(x: 6, y: -6)
+                            .accessibilityLabel("Убрать фото")
+                        }
+                }
+            }
+            .padding(.top, 6)
+            .padding(.horizontal, 4)
+        }
+    }
+
+    /// Фото — к карточке, которую выбрали (сначала первая). Её не сохранили — к первой сохранённой.
+    /// Ни одной записи не сохранилось (только команды) — фото остаются в поле.
+    private func attach(_ attached: [PreparedPhoto], to photoDraft: UUID?, drafts: [AIDraft], saved: [UUID: UUID]) {
+        guard !attached.isEmpty else { return }
+        let target = photoDraft.flatMap { saved[$0] }
+            ?? drafts.lazy.compactMap { saved[$0.id] }.first
+        guard let target else { return }
+        PhotoStore.add(attached, to: target, context: context)
+        let ids = Set(attached.map(\.id))
+        photos.removeAll { ids.contains($0.id) }
     }
 
     private func kindChip(_ k: ItemKind) -> some View {
@@ -363,7 +431,8 @@ struct ComposerBar: View {
                     drafts[index].folderID = openFolder
                 }
                 review = AIReview(phrase: phrase, reply: result.reply, drafts: drafts,
-                                  changes: result.changes, found: result.found, answered: result.answered)
+                                  changes: result.changes, found: result.found, answered: result.answered,
+                                  photos: photos, photoDraft: drafts.first?.id)
                 // Сеть есть — заодно разберём, что ждёт во «Входящих».
                 InboxProcessor.shared.kick()
             } catch {
@@ -422,6 +491,10 @@ struct ComposerBar: View {
             context.insert(item)
         }
         try? context.save()
+        if !photos.isEmpty {
+            PhotoStore.add(photos, to: item.uid, context: context)
+            photos = []
+        }
 
         text = ""
         due = nil

@@ -1,10 +1,21 @@
 import SwiftUI
+import SwiftData
 
-/// Строка записи в списке.
+/// Строка записи в списке. Есть фото — справа миниатюра первого, под заголовком 📷 с числом.
 struct ItemRow: View {
     let item: Item
     let now: Date
     var onToggle: (() -> Void)? = nil
+
+    @Query private var photos: [PhotoAttachment]
+
+    init(item: Item, now: Date, onToggle: (() -> Void)? = nil) {
+        self.item = item
+        self.now = now
+        self.onToggle = onToggle
+        let id = item.uid
+        _photos = Query(filter: #Predicate<PhotoAttachment> { $0.itemID == id }, sort: \.sortIndex)
+    }
 
     private var isOverdue: Bool {
         guard !item.isDone, let due = item.dueAt else { return false }
@@ -58,9 +69,20 @@ struct ItemRow: View {
                         .foregroundStyle(Color.accentColor)
                         .lineLimit(1)
                 }
+
+                if !photos.isEmpty {
+                    Label("\(photos.count)", systemImage: "camera")
+                        .font(.caption)
+                        .foregroundStyle(Color.secondary)
+                }
             }
 
             Spacer(minLength: 0)
+
+            if let first = photos.first {
+                PhotoThumb(data: first.thumbData, size: 44, corner: 8)
+                    .accessibilityLabel("Фото: \(photos.count)")
+            }
         }
         .padding(.vertical, 2)
     }

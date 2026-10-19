@@ -68,6 +68,23 @@ extension BackupItem {
     }
 }
 
+extension BackupPhoto {
+    init(photo: PhotoAttachment) {
+        self.init(uid: photo.uid, itemID: photo.itemID, createdAt: photo.createdAt, sortIndex: photo.sortIndex,
+                  data: photo.imageData)
+    }
+
+    /// Миниатюру делаем заново из фото. Не вышло (испорчено) — nil, такое фото пропускаем.
+    @MainActor
+    func makePhoto() -> PhotoAttachment? {
+        guard let thumb = PhotoStore.thumb(from: data) else { return nil }
+        let photo = PhotoAttachment(itemID: itemID, imageData: data, thumbData: thumb, sortIndex: sortIndex,
+                                    createdAt: createdAt)
+        photo.uid = uid
+        return photo
+    }
+}
+
 extension BackupFolder {
     init(folder: Folder) {
         self.init(uid: folder.uid, name: folder.name, color: folder.colorRaw, symbol: folder.symbol,

@@ -129,7 +129,7 @@ final class FolderAIAndBackupTests: XCTestCase {
 
         let file = try Backup.decode(Backup.encode([item], folders: [projects, vpnFolder],
                                                    exportedAt: TestCalendar.date("2026-10-17 12:00")))
-        XCTAssertEqual(file.version, 2)
+        XCTAssertEqual(file.version, Backup.version)
         XCTAssertEqual(file.items, [item])
         XCTAssertEqual(file.folders, [projects, vpnFolder])
 

@@ -27,6 +27,9 @@ struct DemoConfig: Equatable {
         /// «Идеи» с разделом папок и папка «Проекты / VPN» с вложенной «Реклама».
         case folders
         case folder
+        /// Карточка идеи с 3 фото и это фото на весь экран.
+        case photos
+        case viewer
     }
 
     let screen: Screen
@@ -42,8 +45,33 @@ struct DemoConfig: Equatable {
 enum DemoData {
     static let editTitle = "Подойти к учителю"
     static let folderVPN = "VPN"
+    static let photoTitle = "Бот, который сам считает расходы"
     /// Что «слышит» микрофон на снимке «Слушаю».
     static let listeningText = "перенеси учителя на понедельник и маме позвонил"
+
+    /// Демо-фото: цветной градиент с подписью, 1600×1200.
+    @MainActor
+    static func samplePhoto(_ caption: String, from top: UIColor, to bottom: UIColor) -> UIImage {
+        let size = CGSize(width: 1600, height: 1200)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { context in
+            let colors = [top.cgColor, bottom.cgColor] as CFArray
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) {
+                context.cgContext.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: size.width, y: size.height),
+                                                     options: [])
+            }
+            let style = NSMutableParagraphStyle()
+            style.alignment = .center
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 120, weight: .bold),
+                .foregroundColor: UIColor.white,
+                .paragraphStyle: style,
+            ]
+            (caption as NSString).draw(in: CGRect(x: 80, y: size.height / 2 - 80, width: size.width - 160, height: 300),
+                                       withAttributes: attributes)
+        }
+    }
 
     /// Снимки с клавиатурой: курсор в верхнее поле верхнего экрана (открытого листа, если он есть).
     @MainActor
@@ -103,7 +131,7 @@ enum DemoData {
             Item(kind: .reminder, title: "Забрать посылку", dueAt: day(4, 15), remindBeforeMin: 60),
             Item(kind: .reminder, title: "Купить шнурки"),
             Item(kind: .reminder, title: "Отправить домашку", isDone: true, doneAt: now.addingTimeInterval(-3600)),
-            Item(kind: .idea, title: "Бот, который сам считает расходы", body: "Пишу «кофе 250» — он записывает в таблицу", isPinned: true),
+            Item(kind: .idea, title: photoTitle, body: "Пишу «кофе 250» — он записывает в таблицу", isPinned: true),
             Item(kind: .idea, title: "Тёмная тема для приложения"),
             Item(kind: .idea, title: "Виджет с ближайшим делом", createdAt: now.addingTimeInterval(-2 * 86_400),
                  folderID: projects.uid),
@@ -117,6 +145,16 @@ enum DemoData {
         ]
         for item in items {
             context.insert(item)
+        }
+        // Фото рисуем в коде — картинок в репозитории нет.
+        if let bot = items.first(where: { $0.title == photoTitle }) {
+            let samples: [(String, UIColor, UIColor)] = [
+                ("Чек из кофейни", .systemOrange, .systemPink),
+                ("Таблица расходов", .systemTeal, .systemBlue),
+                ("Схема бота", .systemPurple, .systemIndigo),
+            ]
+            let prepared = samples.compactMap { PhotoStore.prepare(image: samplePhoto($0.0, from: $0.1, to: $0.2)) }
+            PhotoStore.add(prepared, to: bot.uid, context: context, now: now)
         }
         if screen == .inbox {
             for entry in inboxEntries(now: now) {

@@ -10,18 +10,22 @@ struct AIReview: Identifiable {
     var changes: [AIChange] = []
     var found: [AIKnownItem] = []
     var answered = false
+    /// Фото из поля ввода: прикрепятся к карточке photoDraft (сначала — к первой).
+    var photos: [PreparedPhoto] = []
+    var photoDraft: UUID? = nil
 }
 
 /// «Вот что я понял»: карточки перед сохранением. Несколько дел — несколько карточек, одна кнопка.
 /// Команды («перенеси», «готово», «удали») — тоже карточками: применяются только по кнопке.
 struct AIReviewView: View {
-    let onSave: ([AIDraft], [AIChange]) -> Void
+    /// Карточки, изменения и карточка, к которой прикрепить фото.
+    let onSave: ([AIDraft], [AIChange], UUID?) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Folder.sortIndex) private var folders: [Folder]
     @State private var review: AIReview
 
-    init(review: AIReview, onSave: @escaping ([AIDraft], [AIChange]) -> Void) {
+    init(review: AIReview, onSave: @escaping ([AIDraft], [AIChange], UUID?) -> Void) {
         _review = State(initialValue: review)
         self.onSave = onSave
     }
@@ -98,11 +102,12 @@ struct AIReviewView: View {
                     ForEach($review.drafts) { $draft in
                         Section {
                             DraftCard(draft: draft, selectable: selectable,
-                                      folderText: DraftFolder.text(draft, folders: folders)) {
+                                      folderText: DraftFolder.text(draft, folders: folders),
+                                      photos: review.photoDraft == draft.id ? review.photos : []) {
                                 draft.include.toggle()
                             }
                             NavigationLink {
-                                DraftEditView(draft: $draft)
+                                DraftEditView(draft: $draft, photos: review.photos, photoDraft: $review.photoDraft)
                             } label: {
                                 Label("Изменить", systemImage: "pencil")
                             }
@@ -139,7 +144,7 @@ struct AIReviewView: View {
     }
 
     private func finish(_ drafts: [AIDraft], _ changes: [AIChange]) {
-        onSave(drafts, changes)
+        onSave(drafts, changes, review.photoDraft)
         dismiss()
     }
 }
@@ -248,6 +253,8 @@ struct DraftCard: View {
     let selectable: Bool
     /// «Проекты / VPN» или «Новая папка: X». nil — без папки.
     var folderText: String? = nil
+    /// Фото из поля ввода, если они прикрепятся к этой карточке.
+    var photos: [PreparedPhoto] = []
     var onToggle: () -> Void = {}
 
     var body: some View {
@@ -290,6 +297,19 @@ struct DraftCard: View {
                     }
                     .font(.subheadline)
                     .foregroundStyle(Color.primary)
+                }
+
+                if !photos.isEmpty {
+                    HStack(spacing: 6) {
+                        ForEach(photos.prefix(4)) { photo in
+                            PhotoThumb(data: photo.thumb, size: 40, corner: 7)
+                        }
+                        if photos.count > 4 {
+                            Text("+\(photos.count - 4)")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color.secondary)
+                        }
+                    }
                 }
 
                 if let folderText {
@@ -338,6 +358,9 @@ enum DraftFolder {
 /// Правка карточки до сохранения.
 struct DraftEditView: View {
     @Binding var draft: AIDraft
+    /// Фото из поля ввода и карточка, к которой они прикрепятся.
+    var photos: [PreparedPhoto] = []
+    @Binding var photoDraft: UUID?
     @Query(sort: \Folder.sortIndex) private var folders: [Folder]
     @State private var tagsText = ""
 
@@ -396,6 +419,22 @@ struct DraftEditView: View {
             Section("Теги") {
                 TextField("через запятую", text: $tagsText)
                     .textInputAutocapitalization(.never)
+            }
+
+            if !photos.isEmpty {
+                Section {
+                    if photoDraft == draft.id {
+                        Label("Фото (\(photos.count)) прикрепятся к этой записи", systemImage: "photo")
+                    } else {
+                        Button {
+                            photoDraft = draft.id
+                        } label: {
+                            Label("Перенести фото (\(photos.count)) сюда", systemImage: "photo.on.rectangle")
+                        }
+                    }
+                } header: {
+                    Text("Фото")
+                }
             }
         }
         .keyboardDismissable()

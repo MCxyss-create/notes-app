@@ -90,7 +90,7 @@ struct FeedView: View {
                     Label("Изменить", systemImage: "pencil")
                 }
                 Button(role: .destructive) {
-                    withAnimation { context.delete(item) }
+                    withAnimation { PhotoStore.deleteItem(item, context: context) }
                 } label: {
                     Label("Удалить", systemImage: "trash")
                 }

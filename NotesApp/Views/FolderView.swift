@@ -207,7 +207,7 @@ struct NoteRow: View {
             }
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                 Button(role: .destructive) {
-                    withAnimation { context.delete(item) }
+                    withAnimation { PhotoStore.deleteItem(item, context: context) }
                 } label: {
                     Label("Удалить", systemImage: "trash")
                 }
@@ -229,7 +229,7 @@ struct NoteRow: View {
                     Label(item.isPinned ? "Открепить" : "Закрепить", systemImage: "pin")
                 }
                 Button(role: .destructive) {
-                    withAnimation { context.delete(item) }
+                    withAnimation { PhotoStore.deleteItem(item, context: context) }
                 } label: {
                     Label("Удалить", systemImage: "trash")
                 }

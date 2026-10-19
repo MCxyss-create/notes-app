@@ -4,18 +4,27 @@ import SwiftData
 /// Изменение записи. Правки сохраняются сразу.
 struct EditItemView: View {
     @Bindable var item: Item
+    /// Демо-снимок: сразу открыть первое фото на весь экран.
+    var demoViewer = false
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \Folder.sortIndex) private var folders: [Folder]
+    @Query private var photos: [PhotoAttachment]
+    @State private var showLibrary = false
+    @State private var showCamera = false
+    @State private var viewer: PhotoViewerRequest?
     @State private var hasDue: Bool
     @State private var due: Date
     @State private var confirmDelete = false
     @State private var deleted = false
     @State private var tagsText: String
 
-    init(item: Item) {
+    init(item: Item, demoViewer: Bool = false) {
         _item = Bindable(wrappedValue: item)
+        self.demoViewer = demoViewer
+        let id = item.uid
+        _photos = Query(filter: #Predicate<PhotoAttachment> { $0.itemID == id }, sort: \.sortIndex)
         _tagsText = State(initialValue: item.tags.joined(separator: ", "))
         _hasDue = State(initialValue: item.dueAt != nil)
         _due = State(initialValue: item.dueAt
@@ -31,6 +40,8 @@ struct EditItemView: View {
                     TextField("Подробности", text: detailsBinding, axis: .vertical)
                         .lineLimit(3...10)
                 }
+
+                photoSection
 
                 Section {
                     Picker("Вид", selection: kindBinding) {
@@ -102,6 +113,18 @@ struct EditItemView: View {
             .onChange(of: tagsText) { _, value in
                 item.tags = TagText.parse(value)
             }
+            .photoPickers(library: $showLibrary, camera: $showCamera,
+                          limit: PhotoMath.remaining(current: photos.count)) { added in
+                PhotoStore.add(added, to: item.uid, context: context)
+            }
+            .fullScreenCover(item: $viewer) { request in
+                PhotoViewer(itemID: item.uid, startIndex: request.index)
+            }
+            .task {
+                guard demoViewer else { return }
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                viewer = PhotoViewerRequest(index: 0)
+            }
             .onDisappear {
                 guard !deleted else { return }
                 if item.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -134,6 +157,38 @@ struct EditItemView: View {
         } footer: {
             if item.repeatRule != nil {
                 Text("Повторяется: «Выполнено» переносит дело на следующий раз.")
+            }
+        }
+    }
+
+    /// Фото к записи: сетка миниатюр (тап — на весь экран) и «Добавить фото», до 10 штук.
+    private var photoSection: some View {
+        Section {
+            if !photos.isEmpty {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 8)], alignment: .leading, spacing: 8) {
+                    ForEach(Array(photos.enumerated()), id: \.element.uid) { offset, photo in
+                        Button {
+                            viewer = PhotoViewerRequest(index: offset)
+                        } label: {
+                            PhotoThumb(data: photo.thumbData, size: 72)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Фото \(offset + 1)")
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+            Menu {
+                PhotoAddButtons(showLibrary: $showLibrary, showCamera: $showCamera)
+            } label: {
+                Label("Добавить фото", systemImage: "photo.badge.plus")
+            }
+            .disabled(photos.count >= PhotoMath.limit)
+        } header: {
+            HStack {
+                Text("Фото")
+                Spacer()
+                Text(PhotoMath.counterText(photos.count))
             }
         }
     }
@@ -210,7 +265,7 @@ struct EditItemView: View {
         let ctx = context
         dismiss()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            ctx.delete(target)
+            PhotoStore.deleteItem(target, context: ctx)
             try? ctx.save()
         }
     }

@@ -184,6 +184,8 @@ jobs:
           shot urgent 16-srochnye
           shot folders 17-papki
           shot folder 18-papka-vpn
+          shot photos 19-foto
+          shot viewer 20-foto-ekran
           xcrun simctl ui "$SIM" appearance dark || true
           shot feed 8-lenta-temnaya
 

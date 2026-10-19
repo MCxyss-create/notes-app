@@ -38,6 +38,9 @@ targets:
         # Своя кнопка микрофона: без этих строк iOS закроет приложение при первом нажатии.
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Микрофон нужен, чтобы надиктовать запись."
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Распознавание речи превращает надиктованное в текст."
+        # Фото в записях: камера — снять, «Сохранить изображение» из «Поделиться» — без этой строки упадёт.
+        INFOPLIST_KEY_NSCameraUsageDescription: "Камера нужна, чтобы прикрепить фото к записи."
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "Чтобы сохранить фото из записи в галерею."
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # «Срочные» уведомления. Сборка без подписи, поэтому в build.yml .app ещё подписывается
         # ad-hoc с этим файлом — иначе разрешение не попадёт в .ipa.

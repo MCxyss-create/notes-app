@@ -126,7 +126,7 @@ struct RootView: View {
             SettingsView(demoUrgent: demo?.screen == .urgent)
         }
         .sheet(item: $editing) { item in
-            EditItemView(item: item)
+            EditItemView(item: item, demoViewer: demo?.screen == .viewer)
         }
         .sheet(isPresented: $showInbox) {
             InboxView()
@@ -234,6 +234,7 @@ struct RootView: View {
             return
         }
         if AppEnvironment.isRunningTests { return }
+        PhotoStore.removeOrphans(context: context)
         InboxProcessor.shared.start(context: context)
         await NotificationService.shared.requestIfNeeded()
         reschedule()
@@ -274,6 +275,9 @@ struct RootView: View {
             showSettings = true
         case .edit:
             editing = allItems.first { $0.title == DemoData.editTitle }
+        case .photos, .viewer:
+            page = .ideas
+            editing = allItems.first { $0.title == DemoData.photoTitle }
         case .keyboard:
             focusLater()
         case .editKeyboard:

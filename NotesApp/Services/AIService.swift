@@ -95,7 +95,7 @@ enum AIService {
                 item.doneAt = nil
             case .delete:
                 guard allowDelete else { continue }
-                context.delete(item)
+                PhotoStore.deleteItem(item, context: context)
             case .edit:
                 if let title = change.title, !title.isEmpty {
                     item.title = title
@@ -117,9 +117,13 @@ enum AIService {
 
     /// Сохраняет отмеченные карточки как записи. «В новую папку X» — создаёт папку наверху
     /// (одну на все карточки; такая уже есть — кладёт в неё).
+    /// Возвращает, какая карточка (id) стала какой записью (uid) — чтобы прикрепить к ней фото.
     @MainActor
-    static func save(_ drafts: [AIDraft], phrase: String, source: ItemSource = .ai, context: ModelContext) {
+    @discardableResult
+    static func save(_ drafts: [AIDraft], phrase: String, source: ItemSource = .ai,
+                     context: ModelContext) -> [UUID: UUID] {
         var created: [String: UUID] = [:]
+        var saved: [UUID: UUID] = [:]
         for draft in drafts where draft.include {
             let dated = draft.kind == .reminder ? draft.due : nil
             let item = Item(
@@ -146,8 +150,10 @@ enum AIService {
                 }
             }
             context.insert(item)
+            saved[draft.id] = item.uid
         }
         try? context.save()
+        return saved
     }
 
     /// Папка наверху с таким именем: есть — она, нет — новая.

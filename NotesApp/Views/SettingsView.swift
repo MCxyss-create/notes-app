@@ -22,6 +22,8 @@ struct SettingsView: View {
     @AppStorage(SettingsKeys.aiModel) private var aiModel = ""
     @AppStorage(SettingsKeys.listenOnOpen) private var listenOnOpen = true
     @AppStorage(SettingsKeys.voiceAutoSend) private var voiceAutoSend = true
+    @AppStorage(SettingsKeys.backupWithPhotos) private var backupWithPhotos = true
+    @State private var photoStats: (count: Int, bytes: Int) = (0, 0)
     @AppStorage(SettingsKeys.morningSummaryOn) private var morningOn = SummarySettings.standard.morningOn
     @AppStorage(SettingsKeys.morningSummaryMinutes) private var morningMinutes = SummarySettings.standard.morningMinutes
     @AppStorage(SettingsKeys.eveningSummaryOn) private var eveningOn = SummarySettings.standard.eveningOn
@@ -258,6 +260,9 @@ struct SettingsView: View {
 
     private var backupSection: some View {
         Section {
+            Toggle("С фото", isOn: $backupWithPhotos)
+            LabeledContent("Фото", value: "\(photoStats.count) шт., \(PhotoMath.sizeText(bytes: photoStats.bytes))")
+
             Button("Сохранить копию в «Файлы»") {
                 prepareExport()
             }
@@ -286,16 +291,18 @@ struct SettingsView: View {
         } header: {
             Text("Резервная копия")
         } footer: {
-            Text("Все записи и папки одним файлом JSON. Восстановление добавляет только те, которых ещё нет.")
+            Text("Все записи, папки и фото одним файлом JSON. Без фото копия намного меньше. Восстановление добавляет только то, чего ещё нет.")
         }
     }
 
     private func prepareExport() {
         let items = (try? context.fetch(FetchDescriptor<Item>(sortBy: [SortDescriptor(\Item.createdAt)]))) ?? []
         let folders = (try? context.fetch(FetchDescriptor<Folder>(sortBy: [SortDescriptor(\Folder.sortIndex)]))) ?? []
+        let photos = backupWithPhotos ? ((try? context.fetch(FetchDescriptor<PhotoAttachment>())) ?? []) : []
         do {
             exportDocument = BackupDocument(data: try Backup.encode(items.map { BackupItem(item: $0) },
-                                                                    folders: folders.map { BackupFolder(folder: $0) }))
+                                                                    folders: folders.map { BackupFolder(folder: $0) },
+                                                                    photos: photos.map { BackupPhoto(photo: $0) }))
             backupMessage = nil
             showExporter = true
         } catch {
@@ -323,7 +330,15 @@ struct SettingsView: View {
                 for backup in fresh {
                     context.insert(backup.makeItem())
                 }
+                let existingPhotos = Set(((try? context.fetch(FetchDescriptor<PhotoAttachment>())) ?? []).map(\.uid))
+                let items = existing.union(fresh.map(\.uid))
+                for backup in Backup.newPhotos(in: file, existing: existingPhotos, existingItems: items) {
+                    if let photo = backup.makePhoto() {
+                        context.insert(photo)
+                    }
+                }
                 try? context.save()
+                photoStats = PhotoStore.stats(context: context)
                 backupMessage = "Добавлено: \(fresh.count). Уже были: \(file.items.count - fresh.count)."
             } catch {
                 backupMessage = "Это не копия «Мыслей» или файл повреждён."
@@ -393,6 +408,7 @@ struct SettingsView: View {
         savedKey = AISettings.apiKey
         status = await NotificationService.shared.status()
         timeSensitive = await NotificationService.shared.timeSensitive()
+        photoStats = PhotoStore.stats(context: context)
         pending = await NotificationService.shared.pendingCount()
     }
 

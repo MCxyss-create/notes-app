@@ -18,6 +18,8 @@ enum SettingsKeys {
     static let listenOnOpen = "listenOnOpen"
     /// Голос: замолчал — фраза уходит сама.
     static let voiceAutoSend = "voiceAutoSend"
+    /// Резервная копия вместе с фото.
+    static let backupWithPhotos = "backupWithPhotos"
 }
 
 extension SummarySettings {

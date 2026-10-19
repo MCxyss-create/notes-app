@@ -11,7 +11,7 @@ enum AppModel {
     static func sharedContainer() -> ModelContainer {
         if let container { return container }
         do {
-            let made = try ModelContainer(for: Item.self, InboxEntry.self, Folder.self,
+            let made = try ModelContainer(for: Item.self, InboxEntry.self, Folder.self, PhotoAttachment.self,
                                           configurations: ModelConfiguration(isStoredInMemoryOnly: false))
             container = made
             return made

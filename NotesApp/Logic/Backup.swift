@@ -32,25 +32,37 @@ struct BackupFolder: Codable, Equatable {
     var createdAt: Date
 }
 
-/// Файл резервной копии: все записи одним JSON. Версия 2 — ещё и папки.
+/// Одно фото в резервной копии (с версии 3). Данные JPEG — в base64.
+struct BackupPhoto: Codable, Equatable {
+    var uid: UUID
+    var itemID: UUID
+    var createdAt: Date
+    var sortIndex: Int
+    var data: Data
+}
+
+/// Файл резервной копии: все записи одним JSON. Версия 2 — ещё и папки, версия 3 — фото.
 struct BackupFile: Codable {
     var app: String
     var version: Int
     var exportedAt: Date
     var items: [BackupItem]
     var folders: [BackupFolder]? = nil
+    var photos: [BackupPhoto]? = nil
 }
 
 enum Backup {
     static let appName = "Мысли"
-    static let version = 2
+    static let version = 3
 
-    static func encode(_ items: [BackupItem], folders: [BackupFolder] = [], exportedAt: Date = Date()) throws -> Data {
+    /// photos — пусто, если копия «без фото».
+    static func encode(_ items: [BackupItem], folders: [BackupFolder] = [], photos: [BackupPhoto] = [],
+                       exportedAt: Date = Date()) throws -> Data {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return try encoder.encode(BackupFile(app: appName, version: version, exportedAt: exportedAt, items: items,
-                                             folders: folders))
+                                             folders: folders, photos: photos))
     }
 
     static func decode(_ data: Data) throws -> BackupFile {
@@ -77,6 +89,17 @@ enum Backup {
         for folder in file.folders ?? [] where !seen.contains(folder.uid) {
             result.append(folder)
             seen.insert(folder.uid)
+        }
+        return result
+    }
+
+    /// Какие фото добавить: только новые (по uid) и только к записям, которые есть (existingItems).
+    static func newPhotos(in file: BackupFile, existing: Set<UUID>, existingItems: Set<UUID>) -> [BackupPhoto] {
+        var seen = existing
+        var result: [BackupPhoto] = []
+        for photo in file.photos ?? [] where !seen.contains(photo.uid) && existingItems.contains(photo.itemID) {
+            result.append(photo)
+            seen.insert(photo.uid)
         }
         return result
     }

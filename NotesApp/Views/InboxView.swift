@@ -51,7 +51,7 @@ struct InboxView: View {
                 }
             }
             .sheet(item: $review) { r in
-                AIReviewView(review: r) { drafts, changes in
+                AIReviewView(review: r) { drafts, changes, _ in
                     AIService.save(drafts, phrase: r.phrase, context: context)
                     AIService.apply(changes, context: context)
                     if let id = reviewEntry, let entry = entries.first(where: { $0.uid == id }) {
