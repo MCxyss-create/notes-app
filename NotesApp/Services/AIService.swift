@@ -156,6 +156,32 @@ enum AIService {
         return saved
     }
 
+    /// Сохраняет отмеченные события в календарь. Такое же (вид, имя, день) уже есть — не дублирует.
+    /// Возвращает, сколько добавлено.
+    @MainActor
+    @discardableResult
+    static func saveEvents(_ events: [EventDraft], context: ModelContext) -> Int {
+        let ready = events.filter { $0.include && $0.isValid }
+        guard !ready.isEmpty else { return 0 }
+        var existing = ((try? context.fetch(FetchDescriptor<CalendarEvent>())) ?? []).map(\.draft)
+        var added = 0
+        for draft in ready {
+            let key = SearchMatcher.normalize(draft.title.trimmingCharacters(in: .whitespacesAndNewlines))
+            let same = existing.contains {
+                $0.type == draft.type && $0.month == draft.month && $0.day == draft.day
+                    && SearchMatcher.normalize($0.title) == key
+            }
+            guard !same else { continue }
+            let event = CalendarEvent(type: draft.type, title: "", month: draft.month, day: draft.day)
+            event.apply(draft)
+            context.insert(event)
+            existing.append(draft)
+            added += 1
+        }
+        try? context.save()
+        return added
+    }
+
     /// Папка наверху с таким именем: есть — она, нет — новая.
     @MainActor
     private static func folderForNew(_ name: String, context: ModelContext) -> UUID {

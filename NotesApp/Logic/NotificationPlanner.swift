@@ -24,12 +24,12 @@ struct PlannedNotification: Equatable {
 }
 
 enum NotificationPlanner {
-    /// iOS хранит до 64 запланированных уведомлений: 56 — делам,
+    /// iOS хранит до 64 запланированных уведомлений: 48 — делам, 8 — календарю,
     /// до 6 — сводкам, 1 — напоминанию о переподписи, 1 — проверочному.
-    static let defaultLimit = 56
+    static let defaultLimit = 48
     static let idPrefix = "item-"
     /// Все уведомления, которые приложение пересчитывает само (проверочное сюда не входит).
-    static let managedPrefixes = [idPrefix, SummaryPlanner.idPrefix, "resign-"]
+    static let managedPrefixes = [idPrefix, SummaryPlanner.idPrefix, "resign-", CalendarPlanner.idPrefix]
     /// Повторяющееся дело: не дальше 35 дней и не больше 8 раз вперёд.
     static let repeatHorizonDays = 35
     static let perItemLimit = 8

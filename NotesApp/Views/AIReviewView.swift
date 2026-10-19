@@ -13,19 +13,21 @@ struct AIReview: Identifiable {
     /// Фото из поля ввода: прикрепятся к карточке photoDraft (сначала — к первой).
     var photos: [PreparedPhoto] = []
     var photoDraft: UUID? = nil
+    /// Дни рождения и другие ежегодные даты — в календарь.
+    var events: [EventDraft] = []
 }
 
 /// «Вот что я понял»: карточки перед сохранением. Несколько дел — несколько карточек, одна кнопка.
 /// Команды («перенеси», «готово», «удали») — тоже карточками: применяются только по кнопке.
 struct AIReviewView: View {
-    /// Карточки, изменения и карточка, к которой прикрепить фото.
-    let onSave: ([AIDraft], [AIChange], UUID?) -> Void
+    /// Что сохранить: карточки, изменения, события и куда фото. Неотмеченные (include = false) — пропустить.
+    let onSave: (AIReview) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Folder.sortIndex) private var folders: [Folder]
     @State private var review: AIReview
 
-    init(review: AIReview, onSave: @escaping ([AIDraft], [AIChange], UUID?) -> Void) {
+    init(review: AIReview, onSave: @escaping (AIReview) -> Void) {
         _review = State(initialValue: review)
         self.onSave = onSave
     }
@@ -38,18 +40,22 @@ struct AIReviewView: View {
         review.changes.filter(\.include)
     }
 
+    private var chosenEvents: [EventDraft] {
+        review.events.filter(\.include)
+    }
+
     private var hasActions: Bool {
-        !review.drafts.isEmpty || !review.changes.isEmpty
+        !review.drafts.isEmpty || !review.changes.isEmpty || !review.events.isEmpty
     }
 
     /// Галочки «сохранить / не сохранять» нужны, только когда карточек больше одной.
     private var selectable: Bool {
-        review.drafts.count + review.changes.count > 1
+        review.drafts.count + review.changes.count + review.events.count > 1
     }
 
     private var saveTitle: String {
-        let total = chosen.count + chosenChanges.count
-        if chosen.isEmpty && !chosenChanges.isEmpty {
+        let total = chosen.count + chosenChanges.count + chosenEvents.count
+        if chosen.isEmpty && chosenEvents.isEmpty && !chosenChanges.isEmpty {
             return total > 1 ? "Применить (\(total))" : "Применить"
         }
         return total > 1 ? "Сохранить все (\(total))" : "Сохранить"
@@ -89,8 +95,23 @@ struct AIReviewView: View {
                     }
                 }
 
+                ForEach($review.events) { $event in
+                    Section {
+                        EventCard(event: event, selectable: selectable) {
+                            event.include.toggle()
+                        }
+                        NavigationLink {
+                            EventForm(draft: $event)
+                                .navigationTitle("Изменить")
+                                .navigationBarTitleDisplayMode(.inline)
+                        } label: {
+                            Label("Изменить", systemImage: "pencil")
+                        }
+                    }
+                }
+
                 if review.drafts.isEmpty {
-                    if review.changes.isEmpty && !review.answered {
+                    if review.changes.isEmpty && review.events.isEmpty && !review.answered {
                         Section {
                             Text("Не понял, что тут записать.")
                             Button("Сохранить как заметку") {
@@ -134,7 +155,8 @@ struct AIReviewView: View {
                             .padding(.vertical, 6)
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(hasActions && chosen.isEmpty && chosenChanges.isEmpty)
+                    .disabled(hasActions && chosen.isEmpty && chosenChanges.isEmpty
+                              && !chosenEvents.contains(where: \.isValid))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(.bar)
@@ -144,8 +166,59 @@ struct AIReviewView: View {
     }
 
     private func finish(_ drafts: [AIDraft], _ changes: [AIChange]) {
-        onSave(drafts, changes, review.photoDraft)
+        var result = review
+        result.drafts = drafts
+        result.changes = changes
+        onSave(result)
         dismiss()
+    }
+}
+
+/// Карточка события: «🎂 Лёша — 12 марта», «напомню в день и за день».
+struct EventCard: View {
+    let event: EventDraft
+    let selectable: Bool
+    var onToggle: () -> Void = {}
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            if selectable {
+                Button(action: onToggle) {
+                    Image(systemName: event.include ? "checkmark.circle.fill" : "circle")
+                        .font(.title3)
+                        .foregroundStyle(event.include ? Color.accentColor : Color.secondary)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(event.include ? "Не сохранять" : "Сохранить")
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Label("\(event.type.title) · в календарь", systemImage: event.type.symbol)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(event.type.color)
+                Text(event.type == .birthday ? "🎂 \(event.title)" : event.title)
+                    .font(.headline)
+                Label(dateText, systemImage: "calendar")
+                    .font(.subheadline)
+                Text(CalendarMath.remindText(event.remindDays))
+                    .font(.caption)
+                    .foregroundStyle(Color.secondary)
+                if !event.isValid {
+                    Label("Проверь имя и дату", systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(Color.orange)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 2)
+        .opacity(event.include ? 1 : 0.45)
+    }
+
+    /// «12 марта», «5 июня 1999».
+    private var dateText: String {
+        let day = CalendarMath.dayMonthText(month: event.month, day: event.day)
+        return event.year.map { "\(day) \($0)" } ?? day
     }
 }
 

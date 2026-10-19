@@ -7,6 +7,7 @@ enum MainPage: String, CaseIterable, Identifiable {
     case feed
     case ideas
     case notes
+    case calendar
 
     var id: String { rawValue }
 
@@ -15,12 +16,14 @@ enum MainPage: String, CaseIterable, Identifiable {
         case .feed: return "Лента"
         case .ideas: return "Идеи"
         case .notes: return "Заметки"
+        case .calendar: return "Календарь"
         }
     }
 
+    /// Вид записи для поля ввода без ✨. В календаре фразу о ДР разбирает ИИ, иначе — дело.
     var kind: ItemKind {
         switch self {
-        case .feed: return .reminder
+        case .feed, .calendar: return .reminder
         case .ideas: return .idea
         case .notes: return .note
         }
@@ -35,6 +38,10 @@ struct RootView: View {
     @Query(sort: \Item.createdAt) private var allItems: [Item]
     @Query(sort: \InboxEntry.createdAt) private var inbox: [InboxEntry]
     @Query(sort: \Folder.sortIndex) private var folders: [Folder]
+    @Query(sort: \CalendarEvent.createdAt) private var calendarEvents: [CalendarEvent]
+    @AppStorage(SettingsKeys.holidaysOn) private var holidaysOn = true
+    @AppStorage(SettingsKeys.holidayReminders) private var holidayReminders = false
+    @AppStorage(SettingsKeys.hiddenHolidays) private var hiddenHolidays = ""
     @State private var page: MainPage = .feed
     /// Открытые папки: «Идеи» → «Проекты» → «VPN». Поле ввода кладёт записи в последнюю.
     @State private var folderPath: [FolderRoute] = []
@@ -163,6 +170,8 @@ struct RootView: View {
             ItemListView(kind: .idea, onEdit: { editing = $0 })
         case .notes:
             ItemListView(kind: .note, onEdit: { editing = $0 })
+        case .calendar:
+            CalendarView(demoEvent: demo?.screen == .event)
         }
     }
 
@@ -224,6 +233,20 @@ struct RootView: View {
             hasher.combine(item.remindBeforeMin)
             hasher.combine(item.repeatRaw)
         }
+        // События календаря и настройки праздников — тоже меняют уведомления.
+        for event in calendarEvents {
+            hasher.combine(event.uid)
+            hasher.combine(event.title)
+            hasher.combine(event.typeRaw)
+            hasher.combine(event.month)
+            hasher.combine(event.day)
+            hasher.combine(event.year)
+            hasher.combine(event.remindDays)
+            hasher.combine(event.remindMinutes)
+        }
+        hasher.combine(holidaysOn)
+        hasher.combine(holidayReminders)
+        hasher.combine(hiddenHolidays)
         return hasher.finalize()
     }
 
@@ -275,6 +298,8 @@ struct RootView: View {
             showSettings = true
         case .edit:
             editing = allItems.first { $0.title == DemoData.editTitle }
+        case .calendar, .event:
+            page = .calendar
         case .photos, .viewer:
             page = .ideas
             editing = allItems.first { $0.title == DemoData.photoTitle }

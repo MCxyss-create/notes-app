@@ -51,18 +51,20 @@ enum QuickCapture {
             let folders = AIService.knownFolders(context)
             let content = try await askWithTimeout(phrase, said: now, known: known, folders: folders)
             let result = try AIService.parse(content, said: now, known: known, folders: folders)
+            // ДР и годовщины — сразу в календарь, без карточек.
+            AIService.saveEvents(result.events, context: context)
             // Команда или вопрос: «маме позвонил», «что у меня завтра?» — заметку не создаём.
-            if result.drafts.isEmpty && (!result.changes.isEmpty || result.answered) {
+            if result.drafts.isEmpty && result.events.isEmpty && (!result.changes.isEmpty || result.answered) {
                 let applied = AIService.apply(result.changes, context: context, now: now, allowDelete: false)
                 await rescheduleAll(context)
                 let skippedDelete = result.changes.contains { $0.op == .delete }
                 return QuickCaptureText.changed(applied, skippedDelete: skippedDelete, reply: result.reply, now: now)
             }
-            let drafts = result.drafts.isEmpty ? [AIDraft.note(from: phrase)] : result.drafts
+            let drafts = result.drafts.isEmpty && result.events.isEmpty ? [AIDraft.note(from: phrase)] : result.drafts
             AIService.save(drafts, phrase: phrase, context: context)
             AIService.apply(result.changes, context: context, now: now, allowDelete: false)
             await rescheduleAll(context)
-            return QuickCaptureText.saved(drafts, reply: result.reply, now: now)
+            return QuickCaptureText.saved(drafts, reply: result.reply, events: result.events, now: now)
         } catch {
             let problem = AIError.from(error)
             let entry = InboxEntry(text: phrase, createdAt: now)

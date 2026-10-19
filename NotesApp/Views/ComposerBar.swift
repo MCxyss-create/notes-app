@@ -181,10 +181,11 @@ struct ComposerBar: View {
             DueDateSheet(selection: $due, timeGiven: $timeGiven)
         }
         .sheet(item: $review, onDismiss: reviewClosed) { r in
-            AIReviewView(review: r) { drafts, changes, photoDraft in
-                let saved = AIService.save(drafts, phrase: r.phrase, context: context)
-                AIService.apply(changes, context: context)
-                attach(r.photos, to: photoDraft, drafts: drafts, saved: saved)
+            AIReviewView(review: r) { done in
+                let saved = AIService.save(done.drafts, phrase: done.phrase, context: context)
+                AIService.saveEvents(done.events, context: context)
+                AIService.apply(done.changes, context: context)
+                attach(done.photos, to: done.photoDraft, drafts: done.drafts, saved: saved)
                 reviewSaved = true
                 savedCount += 1
             }
@@ -432,7 +433,7 @@ struct ComposerBar: View {
                 }
                 review = AIReview(phrase: phrase, reply: result.reply, drafts: drafts,
                                   changes: result.changes, found: result.found, answered: result.answered,
-                                  photos: photos, photoDraft: drafts.first?.id)
+                                  photos: photos, photoDraft: drafts.first?.id, events: result.events)
                 // Сеть есть — заодно разберём, что ждёт во «Входящих».
                 InboxProcessor.shared.kick()
             } catch {

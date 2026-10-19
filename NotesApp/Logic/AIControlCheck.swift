@@ -106,6 +106,68 @@ enum AIControlCheck {
                     summary: "Нашёл 2 дела на завтра, ничего не записал"),
     ]
 
+    // MARK: - 2 контрольные фразы про календарь
+
+    struct EventCase: Identifiable {
+        let phrase: String
+        let type: EventType
+        let month: Int
+        let day: Int
+        let year: Int?
+        let summary: String
+        var id: String { phrase }
+    }
+
+    static let eventCases: [EventCase] = [
+        EventCase(phrase: "у Лёши день рождения 12 марта", type: .birthday, month: 3, day: 12, year: nil,
+                  summary: "День рождения 12.03, без года, не дело"),
+        EventCase(phrase: "годовщина родителей 5 июня 1999", type: .anniversary, month: 6, day: 5, year: 1999,
+                  summary: "Годовщина 05.06.1999, не дело"),
+    ]
+
+    static func run(_ check: EventCase, config: AIConfig) async -> Outcome {
+        let system = AIPrompt.system(now: now, calendar: calendar, defaultHour: defaults.hour,
+                                     defaultMinute: defaults.minute, defaultBefore: defaults.beforeMin)
+        do {
+            let content = try await DeepSeekClient.send(config: config, system: system, phrase: check.phrase)
+            let result = try AIParser.parse(content, reference: now, now: now, defaults: defaults, calendar: calendar)
+            let issues = problems(result, expected: check)
+            let got = describeEvents(result)
+            if issues.isEmpty {
+                return Outcome(passed: true, details: got)
+            }
+            return Outcome(passed: false, details: "Получилось: \(got). " + issues.joined(separator: "; "))
+        } catch {
+            return Outcome(passed: false, details: AIError.from(error).message)
+        }
+    }
+
+    /// Ровно одно событие нужного вида и даты; дел (reminder) не создано.
+    static func problems(_ result: AIResult, expected: EventCase) -> [String] {
+        var issues: [String] = []
+        if result.events.count != 1 {
+            issues.append("событий \(result.events.count), а надо 1")
+        }
+        if !result.events.contains(where: { $0.type == expected.type && $0.month == expected.month
+            && $0.day == expected.day && $0.year == expected.year }) {
+            issues.append("нет: \(expected.type.title.lowercased()) \(expected.day).\(expected.month)"
+                          + (expected.year.map { ".\($0)" } ?? ""))
+        }
+        if result.drafts.contains(where: { $0.kind == .reminder }) {
+            issues.append("создал дело вместо события")
+        }
+        return issues
+    }
+
+    /// «День рождения «Лёша» 12.3; новая: Напоминание».
+    static func describeEvents(_ result: AIResult) -> String {
+        var parts = result.events.map { event in
+            "\(event.type.title) «\(event.title)» \(event.day).\(event.month)" + (event.year.map { ".\($0)" } ?? "")
+        }
+        parts += result.drafts.map { "новая: " + describe($0) }
+        return parts.isEmpty ? "ничего" : parts.joined(separator: "; ")
+    }
+
     // MARK: - 2 контрольные фразы про папки
 
     struct FolderCase: Identifiable {

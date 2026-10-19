@@ -143,7 +143,7 @@ struct SettingsView: View {
                     .autocorrectionDisabled()
             }
 
-            NavigationLink("Проверить разбор: 8 фраз, 4 команды, 2 про папки") {
+            NavigationLink("Проверить разбор: 8 фраз, 4 команды, папки, календарь") {
                 AICheckView()
             }
         } header: {
@@ -291,7 +291,7 @@ struct SettingsView: View {
         } header: {
             Text("Резервная копия")
         } footer: {
-            Text("Все записи, папки и фото одним файлом JSON. Без фото копия намного меньше. Восстановление добавляет только то, чего ещё нет.")
+            Text("Все записи, папки, календарь и фото одним файлом JSON. Без фото копия намного меньше. Восстановление добавляет только то, чего ещё нет.")
         }
     }
 
@@ -299,10 +299,12 @@ struct SettingsView: View {
         let items = (try? context.fetch(FetchDescriptor<Item>(sortBy: [SortDescriptor(\Item.createdAt)]))) ?? []
         let folders = (try? context.fetch(FetchDescriptor<Folder>(sortBy: [SortDescriptor(\Folder.sortIndex)]))) ?? []
         let photos = backupWithPhotos ? ((try? context.fetch(FetchDescriptor<PhotoAttachment>())) ?? []) : []
+        let events = (try? context.fetch(FetchDescriptor<CalendarEvent>(sortBy: [SortDescriptor(\CalendarEvent.createdAt)]))) ?? []
         do {
             exportDocument = BackupDocument(data: try Backup.encode(items.map { BackupItem(item: $0) },
                                                                     folders: folders.map { BackupFolder(folder: $0) },
-                                                                    photos: photos.map { BackupPhoto(photo: $0) }))
+                                                                    photos: photos.map { BackupPhoto(photo: $0) },
+                                                                    events: events.map { BackupEvent(event: $0) }))
             backupMessage = nil
             showExporter = true
         } catch {
@@ -329,6 +331,12 @@ struct SettingsView: View {
                 let fresh = Backup.newItems(in: file, existing: existing)
                 for backup in fresh {
                     context.insert(backup.makeItem())
+                }
+                let existingEvents = Set(((try? context.fetch(FetchDescriptor<CalendarEvent>())) ?? []).map(\.uid))
+                for backup in Backup.newEvents(in: file, existing: existingEvents) {
+                    if let event = backup.makeEvent() {
+                        context.insert(event)
+                    }
                 }
                 let existingPhotos = Set(((try? context.fetch(FetchDescriptor<PhotoAttachment>())) ?? []).map(\.uid))
                 let items = existing.union(fresh.map(\.uid))

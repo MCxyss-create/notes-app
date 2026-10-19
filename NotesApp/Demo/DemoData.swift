@@ -30,6 +30,9 @@ struct DemoConfig: Equatable {
         /// Карточка идеи с 3 фото и это фото на весь экран.
         case photos
         case viewer
+        /// Календарь: месяц с точками и «Ближайшие»; форма события.
+        case calendar
+        case event
     }
 
     let screen: Screen
@@ -155,6 +158,27 @@ enum DemoData {
             ]
             let prepared = samples.compactMap { PhotoStore.prepare(image: samplePhoto($0.0, from: $0.1, to: $0.2)) }
             PhotoStore.add(prepared, to: bot.uid, context: context, now: now)
+        }
+        // Календарь: ДР завтра (с годом), через неделю и весной, годовщина; праздники считаются сами.
+        func monthDay(_ offset: Int) -> (month: Int, day: Int) {
+            let date = calendar.date(byAdding: .day, value: offset, to: now) ?? now
+            let parts = calendar.dateComponents([.month, .day], from: date)
+            return (parts.month ?? 1, parts.day ?? 1)
+        }
+        let year = calendar.component(.year, from: now)
+        let tomorrow = monthDay(1)
+        let week = monthDay(9)
+        let wedding = monthDay(17)
+        let events = [
+            CalendarEvent(type: .birthday, title: "Лёша", month: tomorrow.month, day: tomorrow.day, year: year - 18,
+                          note: "Подарить наушники"),
+            CalendarEvent(type: .birthday, title: "Мама", month: week.month, day: week.day, remindDays: [0, 1, 7]),
+            CalendarEvent(type: .anniversary, title: "Годовщина свадьбы родителей", month: wedding.month,
+                          day: wedding.day, year: 1999),
+            CalendarEvent(type: .birthday, title: "Ира", month: 3, day: 12),
+        ]
+        for event in events {
+            context.insert(event)
         }
         if screen == .inbox {
             for entry in inboxEntries(now: now) {

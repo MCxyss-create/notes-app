@@ -51,9 +51,10 @@ struct InboxView: View {
                 }
             }
             .sheet(item: $review) { r in
-                AIReviewView(review: r) { drafts, changes, _ in
-                    AIService.save(drafts, phrase: r.phrase, context: context)
-                    AIService.apply(changes, context: context)
+                AIReviewView(review: r) { done in
+                    AIService.save(done.drafts, phrase: done.phrase, context: context)
+                    AIService.saveEvents(done.events, context: context)
+                    AIService.apply(done.changes, context: context)
                     if let id = reviewEntry, let entry = entries.first(where: { $0.uid == id }) {
                         context.delete(entry)
                         try? context.save()
@@ -152,7 +153,8 @@ struct InboxView: View {
         }
         reviewEntry = entry.uid
         review = AIReview(phrase: entry.text, reply: result.reply, drafts: result.drafts,
-                          changes: result.changes, found: result.found, answered: result.answered)
+                          changes: result.changes, found: result.found, answered: result.answered,
+                          events: result.events)
     }
 
     private func parseAll() async {

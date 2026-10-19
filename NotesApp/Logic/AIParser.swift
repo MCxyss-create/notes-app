@@ -46,6 +46,8 @@ struct AIResult {
     var found: [AIKnownItem] = []
     /// Это был вопрос: записывать нечего, только показать ответ.
     var answered = false
+    /// Дни рождения, годовщины и другие ежегодные даты — в календарь.
+    var events: [EventDraft] = []
 }
 
 /// Проверяет ответ DeepSeek, не принимая его на веру: формат JSON, пустые заголовки,
@@ -61,7 +63,8 @@ enum AIParser {
         guard let root = jsonObject(content) else {
             throw AIError.badResponse("это не JSON")
         }
-        guard root["items"] != nil || root["reply"] != nil || root["changes"] != nil || root["found"] != nil else {
+        guard root["items"] != nil || root["reply"] != nil || root["changes"] != nil || root["found"] != nil
+                || root["events"] != nil else {
             throw AIError.badResponse("нет списка записей")
         }
         let list = ((root["items"] as? [Any]) ?? []).compactMap { $0 as? [String: Any] }
@@ -72,9 +75,10 @@ enum AIParser {
         let changes = self.changes(root["changes"], known: known, reference: reference, now: now,
                                    defaults: defaults, calendar: calendar, folders: folders)
         let found = self.found(root["found"], known: known)
-        let answered = root["found"] is [Any] && drafts.isEmpty && changes.isEmpty
+        let events = self.events(root["events"])
+        let answered = root["found"] is [Any] && drafts.isEmpty && changes.isEmpty && events.isEmpty
         return AIResult(reply: text(root["reply"]) ?? "", drafts: drafts, changes: changes,
-                        found: found, answered: answered)
+                        found: found, answered: answered, events: events)
     }
 
     static func draft(from raw: [String: Any], reference: Date, now: Date, defaults: ParseDefaults, calendar: Calendar) -> AIDraft? {
@@ -152,6 +156,58 @@ enum AIParser {
             }
         }
         return result
+    }
+
+    /// Ежегодные даты из "events". Нет имени или такой даты не бывает (31 февраля) — отбрасываем.
+    static func events(_ value: Any?) -> [EventDraft] {
+        let list = ((value as? [Any]) ?? []).compactMap { $0 as? [String: Any] }
+        return list.compactMap { raw in
+            var title = text(raw["title"]) ?? ""
+            while title.hasSuffix(".") {
+                title.removeLast()
+            }
+            title = title.trimmingCharacters(in: .whitespaces)
+            guard !title.isEmpty, let date = eventDate(raw["date"]) else { return nil }
+            let type = text(raw["type"]).flatMap { EventType(rawValue: $0.lowercased()) } ?? .other
+            let year = (int(raw["year"]) ?? date.year).flatMap { (1800...2200).contains($0) ? $0 : nil }
+            let days = ((raw["remind_days"] as? [Any]) ?? []).compactMap { int($0) }.filter { (0...30).contains($0) }
+            return EventDraft(type: type, title: title, month: date.month, day: date.day, year: year,
+                              note: text(raw["note"]), remindDays: days.isEmpty ? [0, 1] : Array(Set(days)).sorted())
+        }
+    }
+
+    /// «--03-12», «1999-06-05», «03-12», «12.03», «12.03.1999». Неверная дата — nil.
+    static func eventDate(_ value: Any?) -> (month: Int, day: Int, year: Int?)? {
+        guard var raw = text(value) else { return nil }
+        raw = String(raw.split(separator: "T").first ?? "")
+        if raw.hasPrefix("--") {
+            raw.removeFirst(2)
+        }
+        let month: Int
+        let day: Int
+        var year: Int?
+        if raw.contains(".") {
+            let parts = raw.split(separator: ".").compactMap { Int($0) }
+            guard parts.count >= 2 else { return nil }
+            day = parts[0]
+            month = parts[1]
+            year = parts.count > 2 ? parts[2] : nil
+        } else {
+            let parts = raw.split(separator: "-").compactMap { Int($0) }
+            switch parts.count {
+            case 3:
+                year = parts[0]
+                month = parts[1]
+                day = parts[2]
+            case 2:
+                month = parts[0]
+                day = parts[1]
+            default:
+                return nil
+            }
+        }
+        guard CalendarMath.isValid(month: month, day: day) else { return nil }
+        return (month, day, year)
     }
 
     /// Ближайший повтор не раньше reference: каждый день / неделю / месяц от исходной даты.

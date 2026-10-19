@@ -20,6 +20,40 @@ enum SettingsKeys {
     static let voiceAutoSend = "voiceAutoSend"
     /// Резервная копия вместе с фото.
     static let backupWithPhotos = "backupWithPhotos"
+    /// Календарь: показывать праздники РФ, напоминать о них, какие скрыты («02-14,12-31»).
+    static let holidaysOn = "holidaysOn"
+    static let holidayReminders = "holidayReminders"
+    static let hiddenHolidays = "hiddenHolidays"
+}
+
+/// Что показать в календаре и о чём напоминать: свои события и праздники по настройкам.
+enum CalendarSettings {
+    static var holidaysOn: Bool {
+        UserDefaults.standard.object(forKey: SettingsKeys.holidaysOn) as? Bool ?? true
+    }
+
+    static var holidayReminders: Bool {
+        UserDefaults.standard.object(forKey: SettingsKeys.holidayReminders) as? Bool ?? false
+    }
+
+    static var hidden: Set<String> {
+        RussianHolidays.hidden(from: UserDefaults.standard.string(forKey: SettingsKeys.hiddenHolidays) ?? "")
+    }
+
+    /// Время напоминания по умолчанию — «Время для «завтра»» из настроек, минуты от полуночи.
+    static var defaultMinutes: Int {
+        AppDefaults.hour * 60 + AppDefaults.minute
+    }
+
+    /// Всё, что видно в календаре: свои события и праздники (если включены и не скрыты).
+    static func shown(_ events: [CalendarEntry]) -> [CalendarEntry] {
+        holidaysOn ? events + RussianHolidays.entries(hidden: hidden) : events
+    }
+
+    /// О чём напоминать: свои события и праздники — только если «Напоминать о праздниках».
+    static func reminded(_ events: [CalendarEntry]) -> [CalendarEntry] {
+        holidaysOn && holidayReminders ? events + RussianHolidays.entries(hidden: hidden) : events
+    }
 }
 
 extension SummarySettings {

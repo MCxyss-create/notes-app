@@ -12,8 +12,10 @@ struct SearchView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Item.createdAt, order: .reverse) private var items: [Item]
     @Query(sort: \Folder.sortIndex) private var folders: [Folder]
+    @Query(sort: \CalendarEvent.createdAt) private var events: [CalendarEvent]
     @State private var query = ""
     @State private var editing: Item?
+    @State private var editingEvent: EventEditRequest?
     private let initialQuery: String
 
     init(initialQuery: String = "") {
@@ -46,6 +48,11 @@ struct SearchView: View {
             }
             .sheet(item: $editing) { item in
                 EditItemView(item: item)
+            }
+            .sheet(item: $editingEvent) { request in
+                NavigationStack {
+                    EventEditView(request: request)
+                }
             }
             .task {
                 // Поле поиска при появлении обнуляет текст, поэтому начальный запрос — чуть позже.
@@ -101,12 +108,36 @@ struct SearchView: View {
         let found = items.filter {
             SearchMatcher.matches(SearchFields(item: $0, folderPath: folderPath($0, nodes: nodes)), query: query)
         }
-        if found.isEmpty {
+        // События календаря — по имени и заметке.
+        let foundEvents = events.filter {
+            SearchMatcher.matches(SearchFields(title: $0.title, body: $0.note, rawInput: nil, tags: []), query: query)
+        }
+        if !foundEvents.isEmpty {
+            Section("Календарь · \(foundEvents.count)") {
+                ForEach(foundEvents) { event in
+                    HStack(spacing: 12) {
+                        Image(systemName: event.type.symbol)
+                            .foregroundStyle(event.type.color)
+                            .frame(width: 24)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(event.title)
+                            Text("\(event.type.title) · \(CalendarMath.dayMonthText(month: event.month, day: event.day))")
+                                .font(.caption)
+                                .foregroundStyle(Color.secondary)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { editingEvent = .edit(event) }
+                }
+            }
+        }
+        if found.isEmpty && foundEvents.isEmpty {
             Section {
                 Text("Ничего не нашлось")
                     .foregroundStyle(Color.secondary)
             }
-        } else {
+        } else if !found.isEmpty {
             ForEach(ItemKind.allCases) { kind in
                 let group = found.filter { $0.kind == kind }
                 if !group.isEmpty {

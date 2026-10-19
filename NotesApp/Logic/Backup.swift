@@ -41,7 +41,23 @@ struct BackupPhoto: Codable, Equatable {
     var data: Data
 }
 
-/// Файл резервной копии: все записи одним JSON. Версия 2 — ещё и папки, версия 3 — фото.
+/// Одно событие календаря в резервной копии (с версии 4). Праздники не сохраняются — они считаются в коде.
+struct BackupEvent: Codable, Equatable {
+    var uid: UUID
+    var title: String
+    var type: String
+    var month: Int
+    var day: Int
+    var year: Int?
+    var note: String?
+    var remindDays: [Int]
+    var remindMinutes: Int?
+    var source: String
+    var contactID: String?
+    var createdAt: Date
+}
+
+/// Файл резервной копии: все записи одним JSON. Версия 2 — ещё и папки, 3 — фото, 4 — календарь.
 struct BackupFile: Codable {
     var app: String
     var version: Int
@@ -49,20 +65,21 @@ struct BackupFile: Codable {
     var items: [BackupItem]
     var folders: [BackupFolder]? = nil
     var photos: [BackupPhoto]? = nil
+    var events: [BackupEvent]? = nil
 }
 
 enum Backup {
     static let appName = "Мысли"
-    static let version = 3
+    static let version = 4
 
     /// photos — пусто, если копия «без фото».
     static func encode(_ items: [BackupItem], folders: [BackupFolder] = [], photos: [BackupPhoto] = [],
-                       exportedAt: Date = Date()) throws -> Data {
+                       events: [BackupEvent] = [], exportedAt: Date = Date()) throws -> Data {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return try encoder.encode(BackupFile(app: appName, version: version, exportedAt: exportedAt, items: items,
-                                             folders: folders, photos: photos))
+                                             folders: folders, photos: photos, events: events))
     }
 
     static func decode(_ data: Data) throws -> BackupFile {
@@ -100,6 +117,17 @@ enum Backup {
         for photo in file.photos ?? [] where !seen.contains(photo.uid) && existingItems.contains(photo.itemID) {
             result.append(photo)
             seen.insert(photo.uid)
+        }
+        return result
+    }
+
+    /// Какие события добавить: тех, что уже есть (по uid), не трогаем, повторы в файле не двоим.
+    static func newEvents(in file: BackupFile, existing: Set<UUID>) -> [BackupEvent] {
+        var seen = existing
+        var result: [BackupEvent] = []
+        for event in file.events ?? [] where !seen.contains(event.uid) {
+            result.append(event)
+            seen.insert(event.uid)
         }
         return result
     }

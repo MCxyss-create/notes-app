@@ -25,10 +25,12 @@ enum SummaryPlanner {
         let title: String
     }
 
+    /// events — ДР и праздники: в утренней сводке строка «Сегодня: 🎂 Лёша, День народного единства».
     static func plan(
         _ reminders: [ReminderInput],
         now: Date,
         settings: SummarySettings,
+        events: [CalendarEntry] = [],
         calendar: Calendar = .current
     ) -> [PlannedNotification] {
         var result: [PlannedNotification] = []
@@ -43,7 +45,9 @@ enum SummaryPlanner {
                     let list = entries(on: day, reminders: reminders, calendar: calendar)
                     // Просроченные известны только на сегодня: к другим дням их могут закрыть.
                     let overdue = offset == 0 ? overdueCount(reminders, before: today) : 0
-                    if let note = morning(list, overdue: overdue, fire: fire, day: day, calendar: calendar) {
+                    let occasions = CalendarMath.entries(on: day, in: events, calendar: calendar).map(CalendarMath.label)
+                    if let note = morning(list, overdue: overdue, occasions: occasions, fire: fire, day: day,
+                                          calendar: calendar) {
                         result.append(note)
                     }
                 }
@@ -104,18 +108,22 @@ enum SummaryPlanner {
         return parts.joined(separator: " · ")
     }
 
-    private static func morning(_ list: [Entry], overdue: Int, fire: Date, day: Date, calendar: Calendar) -> PlannedNotification? {
+    /// Сводка уходит, только если есть дела или просроченные; ДР и праздники — строкой в ней.
+    private static func morning(_ list: [Entry], overdue: Int, occasions: [String], fire: Date, day: Date,
+                                calendar: Calendar) -> PlannedNotification? {
         guard !list.isEmpty || overdue > 0 else { return nil }
         let id = "\(idPrefix)morning-\(dayKey(day, calendar: calendar))"
+        let occasionLine = occasions.isEmpty ? "" : "\nСегодня: " + occasions.joined(separator: ", ")
         if list.isEmpty {
             return PlannedNotification(id: id, date: fire, title: "Есть просроченные дела",
-                                       body: "Просрочено: \(overdue)")
+                                       body: "Просрочено: \(overdue)" + occasionLine)
         }
         var body = bodyText(list, calendar: calendar)
         if overdue > 0 {
             body += " · просрочено: \(overdue)"
         }
-        return PlannedNotification(id: id, date: fire, title: "Сегодня \(countText(list.count))", body: body)
+        return PlannedNotification(id: id, date: fire, title: "Сегодня \(countText(list.count))",
+                                   body: body + occasionLine)
     }
 
     private static func time(on day: Date, minutes: Int, calendar: Calendar) -> Date {

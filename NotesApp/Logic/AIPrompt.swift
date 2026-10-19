@@ -57,10 +57,20 @@ enum AIPrompt {
 
         Сообщение часто надиктовано голосом: без знаков препинания, со словами-паразитами (ну, короче, типа, как бы, э-э, вот, это самое) и ошибками распознавания. Слова-паразиты убирай, очевидные ошибки исправляй по смыслу, знаки расставляй. В title и body — чистый текст, а не сырая речь.
         """
-        let filed = base + "\n\n" + folderRules(folders)
+        let filed = base + "\n\n" + folderRules(folders) + "\n\n" + eventRules
         guard !known.isEmpty else { return filed }
         return filed + "\n\n" + commands(known, now: now, calendar: calendar, offset: offset, defaultTime: defaultTime)
     }
+
+    /// Дни рождения, годовщины и другие ежегодные даты — в календарь, а не в дела.
+    static let eventRules = """
+    Дни рождения, годовщины и другие даты, которые повторяются каждый год («каждый год 5 июня»), — не reminder, а "events":
+    {"items":[],"events":[{"type":"birthday","title":"Лёша","date":"--03-12","year":null,"remind_days":[0,1]}],"reply":"Добавил день рождения Лёши — 12 марта."}
+    - type: "birthday" — день рождения (title — имя, как сказано: «Лёша», «мама»), "anniversary" — годовщина (title — что за годовщина: «Годовщина свадьбы родителей»), "other" — другая ежегодная дата.
+    - date: без года — "--ММ-ДД", с годом — "ГГГГ-ММ-ДД". year — год рождения или события, если назван, иначе null.
+    - remind_days: за сколько дней напомнить: 0 — в день, 1 — за день, 3, 7 — за неделю. Не сказано — [0,1].
+    Обычное дело с датой — это items с kind "reminder", не events.
+    """
 
     /// Список папок и когда класть в них идеи и заметки.
     static func folderRules(_ folders: [AIKnownFolder]) -> String {

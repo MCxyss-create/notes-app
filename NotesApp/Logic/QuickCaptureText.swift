@@ -3,10 +3,14 @@ import Foundation
 /// Что ответить в Siri / на Кнопке действия.
 enum QuickCaptureText {
     /// После записи: ответ ИИ, а если его нет — что именно записано.
-    static func saved(_ drafts: [AIDraft], reply: String, now: Date = Date(), calendar: Calendar = .current) -> String {
+    static func saved(_ drafts: [AIDraft], reply: String, events: [EventDraft] = [], now: Date = Date(),
+                      calendar: Calendar = .current) -> String {
         let answer = reply.trimmingCharacters(in: .whitespacesAndNewlines)
         if !answer.isEmpty {
             return "Записал. \(answer)"
+        }
+        if drafts.isEmpty, let event = events.first {
+            return "Добавил в календарь: \(event.title), \(CalendarMath.dayMonthText(month: event.month, day: event.day))."
         }
         guard let first = drafts.first else { return "Записал." }
         if drafts.count > 1 {

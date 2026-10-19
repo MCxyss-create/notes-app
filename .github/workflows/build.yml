@@ -186,6 +186,8 @@ jobs:
           shot folder 18-papka-vpn
           shot photos 19-foto
           shot viewer 20-foto-ekran
+          shot calendar 21-kalendar
+          shot event 22-sobytie
           xcrun simctl ui "$SIM" appearance dark || true
           shot feed 8-lenta-temnaya
 

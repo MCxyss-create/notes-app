@@ -110,7 +110,7 @@ final class PhotoTests: XCTestCase {
                                 sortIndex: 0, data: Data([1]))
         let file = try Backup.decode(Backup.encode([], photos: [photo, stray, photo],
                                                    exportedAt: TestCalendar.date("2026-10-18 12:00")))
-        XCTAssertEqual(file.version, 3)
+        XCTAssertEqual(file.version, Backup.version)
         XCTAssertEqual(file.photos, [photo, stray, photo])
 
         let fresh = Backup.newPhotos(in: file, existing: [], existingItems: [itemID])

@@ -12,6 +12,7 @@ enum AppModel {
         if let container { return container }
         do {
             let made = try ModelContainer(for: Item.self, InboxEntry.self, Folder.self, PhotoAttachment.self,
+                                          CalendarEvent.self,
                                           configurations: ModelConfiguration(isStoredInMemoryOnly: false))
             container = made
             return made
@@ -21,7 +22,7 @@ enum AppModel {
     }
 }
 
-/// Пересчитывает все уведомления: дела, сводки, напоминание о переподписи.
+/// Пересчитывает все уведомления: дела, календарь, сводки, напоминание о переподписи.
 @MainActor
 enum NotificationScheduler {
     @discardableResult
@@ -29,8 +30,13 @@ enum NotificationScheduler {
         let reminders = items
             .filter { $0.kind == .reminder }
             .map { ReminderInput(item: $0) }
+        let events = ((try? AppModel.container?.mainContext.fetch(FetchDescriptor<CalendarEvent>())) ?? [])
+            .map(\.entry)
         var plan = NotificationPlanner.plan(reminders, now: now)
-        plan += SummaryPlanner.plan(reminders, now: now, settings: SummarySettings.current)
+        plan += SummaryPlanner.plan(reminders, now: now, settings: SummarySettings.current,
+                                    events: CalendarSettings.shown(events))
+        plan += CalendarPlanner.plan(CalendarSettings.reminded(events), now: now,
+                                     defaultMinutes: CalendarSettings.defaultMinutes)
         if let resign = ResignPlanner.plan(expiration: ProvisionInfo.expirationDate, now: now) {
             plan.append(resign)
         }

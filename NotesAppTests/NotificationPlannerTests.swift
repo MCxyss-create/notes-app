@@ -39,7 +39,7 @@ final class NotificationPlannerTests: XCTestCase {
         XCTAssertEqual(plan.map(\.date), [TestCalendar.date("2026-10-16 22:30")])
     }
 
-    /// 100 дел → ставим только ближайшие (56: остальные места — сводкам и переподписи), по порядку.
+    /// 100 дел → ставим только ближайшие (48: остальные места — календарю, сводкам и переподписи), по порядку.
     func testLimitKeepsNearest() {
         let many = (1...100).map { i in
             ReminderInput(id: UUID(), title: "Дело \(i)", details: nil,
@@ -50,7 +50,7 @@ final class NotificationPlannerTests: XCTestCase {
         let plan = NotificationPlanner.plan(many, now: now)
         let limit = NotificationPlanner.defaultLimit
 
-        XCTAssertEqual(limit, 56)
+        XCTAssertEqual(limit, 48)
         XCTAssertEqual(plan.count, limit)
         XCTAssertEqual(plan.first?.title, "Дело 1")
         XCTAssertEqual(plan.last?.title, "Дело \(limit)")

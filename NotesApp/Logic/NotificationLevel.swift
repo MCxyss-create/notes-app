@@ -8,9 +8,10 @@ enum NotificationLevel {
     /// Проверочное уведомление из настроек.
     static let testPrefix = "test-"
 
-    /// Дела, переподпись и проверочное — срочные; сводки и всё прочее — обычные.
+    /// Дела, календарь, переподпись и проверочное — срочные; сводки и всё прочее — обычные.
     static func `for`(id: String) -> UNNotificationInterruptionLevel {
-        if id.hasPrefix(NotificationPlanner.idPrefix) || id == ResignPlanner.id || id.hasPrefix(testPrefix) {
+        if id.hasPrefix(NotificationPlanner.idPrefix) || id.hasPrefix(CalendarPlanner.idPrefix)
+            || id == ResignPlanner.id || id.hasPrefix(testPrefix) {
             return .timeSensitive
         }
         return .active

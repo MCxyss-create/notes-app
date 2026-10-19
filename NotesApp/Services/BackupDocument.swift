@@ -68,6 +68,25 @@ extension BackupItem {
     }
 }
 
+extension BackupEvent {
+    init(event: CalendarEvent) {
+        self.init(uid: event.uid, title: event.title, type: event.typeRaw, month: event.month, day: event.day,
+                  year: event.year, note: event.note, remindDays: event.remindDays, remindMinutes: event.remindMinutes,
+                  source: event.sourceRaw, contactID: event.contactID, createdAt: event.createdAt)
+    }
+
+    /// Неверная дата в файле — nil, такое событие пропускаем.
+    func makeEvent() -> CalendarEvent? {
+        guard CalendarMath.isValid(month: month, day: day) else { return nil }
+        let event = CalendarEvent(type: EventType(rawValue: type) ?? .other, title: title, month: month, day: day,
+                                  year: year, note: note, remindDays: remindDays, remindMinutes: remindMinutes,
+                                  source: EventSource(rawValue: source) ?? .manual, contactID: contactID,
+                                  createdAt: createdAt)
+        event.uid = uid
+        return event
+    }
+}
+
 extension BackupPhoto {
     init(photo: PhotoAttachment) {
         self.init(uid: photo.uid, itemID: photo.itemID, createdAt: photo.createdAt, sortIndex: photo.sortIndex,

@@ -23,7 +23,7 @@ struct MysliApp: App {
         do {
             let config = ModelConfiguration(isStoredInMemoryOnly: inMemory)
             container = try ModelContainer(for: Item.self, InboxEntry.self, Folder.self, PhotoAttachment.self,
-                                           configurations: config)
+                                           CalendarEvent.self, configurations: config)
         } catch {
             fatalError("Не удалось открыть базу записей: \(error)")
         }

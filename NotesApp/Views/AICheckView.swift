@@ -9,6 +9,7 @@ struct AICheckView: View {
 
     private var total: Int {
         AIControlCheck.cases.count + AIControlCheck.commandCases.count + AIControlCheck.folderCases.count
+            + AIControlCheck.eventCases.count
     }
     private var passed: Int { results.values.filter(\.passed).count }
 
@@ -104,6 +105,26 @@ struct AICheckView: View {
             } footer: {
                 Text("Будто уже есть папки «Проекты / VPN», «Шопинг», «Школа» и те же записи, что для команд.")
             }
+
+            Section("Календарь") {
+                ForEach(AIControlCheck.eventCases) { check in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .top, spacing: 8) {
+                            mark(results[check.phrase])
+                            Text(check.phrase)
+                        }
+                        Text("Надо: \(check.summary)")
+                            .font(.caption)
+                            .foregroundStyle(Color.secondary)
+                        if let outcome = results[check.phrase] {
+                            Text(outcome.details)
+                                .font(.caption)
+                                .foregroundStyle(outcome.passed ? Color.secondary : Color.red)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Проверка разбора")
@@ -139,6 +160,9 @@ struct AICheckView: View {
             results[check.phrase] = await AIControlCheck.run(check, config: config)
         }
         for check in AIControlCheck.folderCases {
+            results[check.phrase] = await AIControlCheck.run(check, config: config)
+        }
+        for check in AIControlCheck.eventCases {
             results[check.phrase] = await AIControlCheck.run(check, config: config)
         }
         running = false
