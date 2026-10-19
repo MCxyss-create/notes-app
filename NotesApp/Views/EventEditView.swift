@@ -104,8 +104,11 @@ struct EventForm: View {
                         Text(CalendarMath.monthsNominative[month - 1]).tag(month)
                     }
                 }
-                TextField("Год — необязательно", text: yearBinding)
-                    .keyboardType(.numberPad)
+                LabeledContent("Год") {
+                    TextField("необязательно", text: yearBinding)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                }
             } header: {
                 Text("Дата")
             } footer: {

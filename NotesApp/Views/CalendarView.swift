@@ -205,7 +205,7 @@ struct CalendarView: View {
 
     // MARK: - Ближайшие
 
-    /// «🎂 Лёша» / «Завтра · 1 ноября · исполнится 18».
+    /// «Лёша» (значок 🎁 слева) / «Завтра · 1 ноября · исполнится 18».
     private func upcomingRow(_ occurrence: Occurrence) -> some View {
         let entry = occurrence.entry
         let isToday = calendar.isDateInToday(occurrence.date)
@@ -220,7 +220,7 @@ struct CalendarView: View {
                 .foregroundStyle(entry.type.color)
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
-                Text(CalendarMath.label(entry))
+                Text(entry.title)
                 Text(details.joined(separator: " · "))
                     .font(.caption)
                     .foregroundStyle(isToday ? Color.accentColor : Color.secondary)
